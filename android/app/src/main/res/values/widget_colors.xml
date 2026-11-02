@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="w_text">#2A1A1C</color>
+    <color name="w_muted">#75605F</color>
+    <color name="w_icon">#FFFFFF</color>
+    <color name="w_bird">#7B1E2B</color>
+    <color name="w_badge_text">#7B1E2B</color>
+</resources>

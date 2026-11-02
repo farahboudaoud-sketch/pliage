@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pliage</string>
+    <string name="title_activity_main">Pliage</string>
+    <string name="package_name">fr.pliage.app</string>
+    <string name="custom_url_scheme">fr.pliage.app</string>
+    <string name="widget_description">Reprendre le dernier fichier et quatre raccourcis</string>
+</resources>

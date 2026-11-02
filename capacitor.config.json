@@ -1,0 +1,14 @@
+{
+  "appId": "fr.pliage.app",
+  "appName": "Pliage",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#FAF9F8"
+  },
+  "plugins": {
+    "SystemBars": {
+      "style": "DEFAULT",
+      "insetsHandling": "css"
+    }
+  }
+}
