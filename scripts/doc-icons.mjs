@@ -2,12 +2,11 @@
 import sharp from 'sharp';
 import { writeFileSync } from 'node:fs';
 
-const svg = (label, band) => `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <path d="M52 14h108l52 52v168a8 8 0 0 1-8 8H52a8 8 0 0 1-8-8V22a8 8 0 0 1 8-8z" fill="#FFFFFF" stroke="#C9C2C2" stroke-width="5"/>
-  <path d="M160 14v44a8 8 0 0 0 8 8h44" fill="#EEE8E8" stroke="#C9C2C2" stroke-width="5" stroke-linejoin="round"/>
-  <g stroke="#D6CFCF" stroke-width="9" stroke-linecap="round"><line x1="76" y1="96" x2="180" y2="96"/><line x1="76" y1="120" x2="180" y2="120"/></g>
-  <rect x="24" y="146" width="184" height="72" rx="10" fill="${band}"/>
-  <text x="116" y="200" font-family="DejaVu Sans, Arial, sans-serif" font-weight="bold" font-size="${label.length > 3 ? 50 : 60}" fill="#FFFFFF" text-anchor="middle">${label}</text>
+const svg = (label, color) => `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <path d="M62 12h96l58 58v158a16 16 0 0 1-16 16H62a16 16 0 0 1-16-16V28a16 16 0 0 1 16-16z" fill="#FFFFFF" stroke="${color}" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M156 12v42a16 16 0 0 0 16 16h44" fill="none" stroke="${color}" stroke-width="10" stroke-linejoin="round"/>
+  <g transform="translate(76 52) scale(1.45)"><polygon points="20,60 78,60 48,32" fill="${color}"/><polygon points="48,32 78,60 74,6" fill="${color}" fill-opacity="0.72"/><polygon points="20,60 10,32 32,50" fill="${color}"/><polygon points="10,32 4,36 14,38" fill="${color}" fill-opacity="0.72"/></g>
+  <text x="131" y="214" font-family="DejaVu Sans, Arial, sans-serif" font-weight="bold" font-size="${label.length > 3 ? 46 : 56}" fill="#1E1E1E" text-anchor="middle">${label}</text>
 </svg>`;
 
 async function ico(label, band, out) {
@@ -28,6 +27,6 @@ async function ico(label, band, out) {
   await sharp(Buffer.from(svg(label, band))).png().toFile(out.replace('.ico', '-apercu.png'));
 }
 
-await ico('PDF', '#D93025', 'desktop/build-res/pdf.ico');
+await ico('PDF', '#E5322D', 'desktop/build-res/pdf.ico');
 await ico('EPUB', '#2E7D52', 'desktop/build-res/epub.ico');
 console.log('icônes ok');
