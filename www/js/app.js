@@ -212,7 +212,7 @@
           ${files.length > 60 ? `<p class="hint">… et ${files.length - 60} autres</p>` : ''}</div>
         ${multi && where ? `<p class="hint">Enregistrés dans ${esc(where)}</p>` : ''}
         <div class="acts3">
-          <button class="act2" data-a="share">${icon('share', 22)}<span>Partager</span></button>
+          <button class="act2" data-a="share">${icon(Native.isDesktop ? 'folder' : 'share', 22)}<span>${Native.isDesktop ? 'Montrer dans le dossier' : 'Partager'}</span></button>
           ${multi ? `<button class="act2" data-a="zip">${icon('zip', 22)}<span>Tout en ZIP</span></button>` : `<button class="act2" data-a="saveas">${icon('save', 22)}<span>Enregistrer sous</span></button>`}
           <button class="act2" data-a="ess">${icon('star', 22)}<span>Mes essentiels</span></button>
         </div>
@@ -251,7 +251,7 @@
   function fileMenu(f, extra) {
     const items = [
       { icon: kind(f) === 'pdf' ? 'pencil' : 'open', label: kind(f) === 'pdf' ? 'Ouvrir dans l’éditeur' : 'Ouvrir', run: () => { UI.popAll(); openFile(f); } },
-      { icon: 'share', label: 'Partager', run: () => Native.share([f.path]).catch((e) => UI.toast(e.message, true)) },
+      { icon: Native.isDesktop ? 'folder' : 'share', label: Native.isDesktop ? 'Montrer dans le dossier' : 'Partager', run: () => Native.share([f.path]).catch((e) => UI.toast(e.message, true)) },
       { icon: 'save', label: 'Enregistrer sous…', run: async () => { try { const r = await Native.saveAs(f.path, f.name); if (r.saved) UI.toast('Enregistré'); } catch (e) { UI.toast(e.message, true); } } },
       { icon: 'open', label: 'Ouvrir avec une autre appli', run: () => Native.openWith(f.path).catch((e) => UI.toast(e.message, true)) },
       { icon: 'grid', label: 'Envoyer vers un outil', run: () => suggest([f], 'tool') },
@@ -598,6 +598,7 @@
       <h2 class="sec-t">Enregistrement</h2>
       <div class="card">
         ${sw('autoSave', 'Copier dans Téléchargements/Pliage', 'Chaque fichier créé y est aussi enregistré', s.autoSave)}
+        ${Native.isDesktop ? row('Ouvrir le dossier Téléchargements/Pliage', '', 'data-dl') : ''}
         <div class="srow static"><span>Nom des fichiers</span>${seg('naming', [['outil', 'nom (outil)'], ['date', 'nom-outil-date']], s.naming)}</div>
       </div>
 
@@ -627,8 +628,8 @@
         ${row('Tracer une signature', '', 'data-newsig')}
       </div>
 
-      <h2 class="sec-t">Widget</h2>
-      <div class="card"><div class="srow static col"><span>Ajoute le widget Pliage depuis l’écran d’accueil (appui long › Widgets). Pour changer son thème ou ses quatre raccourcis : appui long sur le widget › Paramètres.</span></div></div>
+      ${Native.isDesktop ? '' : `<h2 class="sec-t">Widget</h2>
+      <div class="card"><div class="srow static col"><span>Ajoute le widget Pliage depuis l’écran d’accueil (appui long › Widgets). Pour changer son thème ou ses quatre raccourcis : appui long sur le widget › Paramètres.</span></div></div>`}
 
       <h2 class="sec-t">Données</h2>
       <div class="card">
@@ -664,6 +665,8 @@
     host.querySelectorAll('[data-delsig]').forEach((b) => b.addEventListener('click', () => { Store.removeSignature(b.dataset.delsig); renderReglages(); }));
     host.querySelector('[data-newsig]').addEventListener('click', async () => { const r = await Sig.draw('signature'); void r; renderReglages(); });
     host.querySelector('[data-backup]').addEventListener('click', backup);
+    const dl = host.querySelector('[data-dl]');
+    if (dl) dl.addEventListener('click', () => Native.showDownloads());
     host.querySelector('[data-restore]').addEventListener('click', restore);
     host.querySelector('[data-clear]').addEventListener('click', async () => {
       const ok = await UI.confirm('Vider l’historique ?', 'Les fichiers restent dans Téléchargements/Pliage et dans ' + Store.ess().name + '.', 'Vider', true);
@@ -760,6 +763,20 @@
     Native.onBack(back);
     let rt = null;
     window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (current === 'modifier') Editor.relayout(); }, 250); });
+    if (Native.isDesktop) {
+      document.documentElement.classList.add('desktop');
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') back(); });
+      document.addEventListener('dragover', (e) => { e.preventDefault(); document.body.classList.add('dropping'); });
+      document.addEventListener('dragleave', (e) => { if (!e.relatedTarget) document.body.classList.remove('dropping'); });
+      document.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        document.body.classList.remove('dropping');
+        if (!e.dataTransfer || !e.dataTransfer.files.length) return;
+        const files = await Native.importDropped(e.dataTransfer.files);
+        incoming({ files, mode: 'open' });
+      });
+      Native.version().then((v) => { if (v) window.PLIAGE_VERSION = v; }).catch(() => {});
+    }
     try {
       const info = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App ? await window.Capacitor.Plugins.App.getInfo() : null;
       if (info) window.PLIAGE_VERSION = info.version;

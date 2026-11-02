@@ -4,6 +4,8 @@
   const isNative = !!(C && C.isNativePlatform && C.isNativePlatform());
   const P = isNative && C.Plugins ? C.Plugins.Pliage : null;
   const App = isNative && C.Plugins ? C.Plugins.App : null;
+  // Version Windows (Electron) : fonctions du PC exposées par preload.js
+  const D = !isNative && window.PliageDesktop ? window.PliageDesktop : null;
 
   // ---- Version navigateur : les fichiers vivent en mémoire
   const mem = new Map();
@@ -63,6 +65,10 @@
   }
 
   let dirs = null;
+  async function blobOf(path) {
+    if (D) return new Blob([await D.read(path)], { type: mimeOf(path) });
+    return mem.get(path);
+  }
 
   const Native = {
     isNative,
@@ -70,7 +76,7 @@
 
     async dirs() {
       if (dirs) return dirs;
-      dirs = P ? await P.paths() : { files: FILES, cache: CACHE };
+      dirs = P ? await P.paths() : D ? await D.dirs() : { files: FILES, cache: CACHE };
       return dirs;
     },
 
@@ -80,12 +86,14 @@
         const r = await P.pickFiles({ mimes: mimes || [], multiple: !!multiple });
         return r.files || [];
       }
+      if (D) return D.pick(mimes || [], !!multiple);
       const accept = (mimes || []).map((m) => (m === 'application/pdf' ? '.pdf,application/pdf' : m)).join(',');
       return pickerBrowser(accept, multiple);
     },
 
     /** Lit un fichier et renvoie un ArrayBuffer. */
     async read(path) {
+      if (D) return D.read(path);
       if (!P) {
         const b = mem.get(path);
         if (!b) throw new Error('Fichier introuvable');
@@ -98,6 +106,7 @@
 
     /** URL utilisable dans <img>, <video>… */
     url(path) {
+      if (D) return D.url(path);
       if (!P) {
         const b = mem.get(path);
         return b ? URL.createObjectURL(b) : '';
@@ -109,6 +118,7 @@
     async write(path, data) {
       if (data instanceof Blob) data = new Uint8Array(await data.arrayBuffer());
       else if (data instanceof ArrayBuffer) data = new Uint8Array(data);
+      if (D) return D.write(path, data);
       if (!P) {
         mem.set(path, new Blob([data], { type: mimeOf(path) }));
         return { path, size: data.length };
@@ -123,6 +133,7 @@
     },
 
     async copy(from, to) {
+      if (D) return D.copy(from, to);
       if (!P) {
         const b = mem.get(from);
         if (!b) throw new Error('Fichier introuvable');
@@ -133,19 +144,22 @@
     },
 
     async remove(path) {
+      if (D) return D.remove(path).catch(() => {});
       if (!P) { for (const k of [...mem.keys()]) if (k === path || k.startsWith(path + '/')) mem.delete(k); return; }
       return P.deleteFile({ path }).catch(() => {});
     },
 
     async exists(path) {
+      if (D) return D.exists(path);
       if (!P) return mem.has(path);
       const r = await P.fileInfo({ path });
       return r.exists;
     },
 
-    async clearCache() { if (P) return P.clearCache(); },
+    async clearCache() { if (D) return D.clearCache(); if (P) return P.clearCache(); },
 
     async saveToDownloads(path, name) {
+      if (D) return D.saveToDownloads(path, name);
       if (!P) {
         download(mem.get(path), name);
         return { shown: 'Téléchargements/' + name };
@@ -154,11 +168,13 @@
     },
 
     async saveAs(path, name) {
+      if (D) return D.saveAs(path, name);
       if (!P) { download(mem.get(path), name); return { saved: true, name }; }
       return P.saveAs({ path, name, mime: mimeOf(name) });
     },
 
     async share(paths) {
+      if (D) return D.share(paths);
       if (!P) {
         if (navigator.share && navigator.canShare) {
           const files = paths.map((p) => new File([mem.get(p)], p.split('/').pop()));
@@ -171,6 +187,7 @@
     },
 
     async openWith(path) {
+      if (D) return D.openWith(path);
       if (!P) { window.open(Native.url(path), '_blank'); return; }
       return P.openWith({ path });
     },
@@ -178,7 +195,7 @@
     /** Réencode une image (jpeg/png/webp), avec redimensionnement et EXIF. */
     async processImage(o) {
       if (P) return P.processImage(o);
-      const blob = mem.get(o.path);
+      const blob = await blobOf(o.path);
       const bmp = await createImageBitmap(blob);
       let k = o.scalePct && o.scalePct < 100 ? o.scalePct / 100 : 1;
       if (o.maxSide && Math.max(bmp.width, bmp.height) * k > o.maxSide) k = o.maxSide / Math.max(bmp.width, bmp.height);
@@ -190,6 +207,7 @@
       g.drawImage(bmp, 0, 0, w, h);
       const type = o.format === 'png' ? 'image/png' : o.format === 'webp' ? 'image/webp' : 'image/jpeg';
       const out = await new Promise((r) => cv.toBlob(r, type, (o.quality || 80) / 100));
+      if (D) { await D.write(o.out, new Uint8Array(await out.arrayBuffer())); return { path: o.out, size: out.size, width: w, height: h }; }
       mem.set(o.out, out);
       return { path: o.out, size: out.size, width: w, height: h };
     },
@@ -206,14 +224,16 @@
     },
 
     async compressVideo(o, onProgress) {
+      if (D) return D.compressVideo(o, onProgress);
       if (!P) throw new Error('La compression vidéo fonctionne uniquement sur le téléphone');
       const h = await P.addListener('videoProgress', (d) => onProgress && onProgress(d.progress));
       try { return await P.compressVideo(o); } finally { h.remove(); }
     },
 
-    cancelVideo() { if (P) P.cancelVideo(); },
+    cancelVideo() { if (D) D.cancelVideo(); if (P) P.cancelVideo(); },
 
     async zip(paths, names, out, level, onProgress) {
+      if (D) return D.zip(paths, names || null, out, level == null ? 6 : level, onProgress);
       if (!P) {
         const z = new JSZip();
         paths.forEach((p, i) => z.file(names ? names[i] : p.split('/').pop(), mem.get(p)));
@@ -226,6 +246,7 @@
     },
 
     async unzip(path, outDir) {
+      if (D) return D.unzip(path, outDir);
       if (!P) {
         const z = await JSZip.loadAsync(await mem.get(path).arrayBuffer());
         const files = [];
@@ -242,41 +263,54 @@
     },
 
     async htmlToPdf(html, out, pageSize, landscape) {
+      if (D) return D.htmlToPdf(html, out, pageSize || 'A4', !!landscape);
       if (!P) throw new Error('Cette conversion hors ligne fonctionne uniquement sur le téléphone');
       return P.htmlToPdf({ html, out, pageSize: pageSize || 'A4', landscape: !!landscape });
     },
 
-    async setSecret(key, value) { if (P) return P.setSecret({ key, value }); localStorage.setItem('secret.' + key, value); },
+    async setSecret(key, value) { if (D) return D.setSecret(key, value); if (P) return P.setSecret({ key, value }); localStorage.setItem('secret.' + key, value); },
     async hasSecret(key) {
+      if (D) return D.hasSecret(key);
       if (P) return P.hasSecret({ key });
       const v = localStorage.getItem('secret.' + key) || '';
       return { has: !!v, tail: v.slice(-4) };
     },
     async testOnline(service) {
+      if (D) return D.testOnline(service);
       if (!P) throw new Error('Test disponible uniquement sur le téléphone');
       return P.testOnline({ service });
     },
     async onlineConvert(o, onStep) {
+      if (D) return D.onlineConvert(o, onStep);
       if (!P) throw new Error('Conversion en ligne disponible uniquement sur le téléphone');
       const h = await P.addListener('onlineProgress', (d) => onStep && onStep(d.label));
       try { return await P.onlineConvert(o); } finally { h.remove(); }
     },
 
     async backup(json, out) {
+      if (D) return D.backup(json, out);
       if (!P) { const blob = new Blob([json]); mem.set(out, blob); return { path: out, size: blob.size }; }
       return P.backup({ json, out });
     },
     async restore(path) {
+      if (D) return D.restore(path);
       if (!P) return { json: await mem.get(path).text(), dir: FILES + '/essentiels' };
       return P.restore({ path });
     },
 
     updateWidget(name, path) { if (P) P.updateWidget({ name: name || '', path: path || '' }).catch(() => {}); },
 
-    onIncoming(cb) { if (P) P.addListener('incoming', cb); },
+    onIncoming(cb) { if (D) D.onIncoming(cb); if (P) P.addListener('incoming', cb); },
     onShortcut(cb) { if (P) P.addListener('shortcut', cb); },
     onBack(cb) { if (App) App.addListener('backButton', cb); },
-    exitApp() { if (App) App.exitApp(); },
+    exitApp() { if (D) D.quit(); if (App) App.exitApp(); },
+    isDesktop: !!D,
+    async importDropped(fileList) {
+      if (!D) return [];
+      return D.importPaths(Array.from(fileList).map((f) => D.pathOf(f)).filter(Boolean));
+    },
+    showDownloads() { if (D) D.showDownloads(); },
+    async version() { if (D) return D.version(); return null; },
   };
 
   window.Native = Native;

@@ -150,7 +150,7 @@
 
   function fitScale() {
     const scroll = S.root.querySelector('.ed-scroll');
-    const avail = Math.max(240, (scroll.clientWidth || window.innerWidth) - 24);
+    const avail = Math.min(Native.isDesktop ? 880 : 4000, Math.max(240, (scroll.clientWidth || window.innerWidth) - 24));
     const maxW = Math.max(...S.pages.map((p) => p.w));
     return avail / maxW;
   }
