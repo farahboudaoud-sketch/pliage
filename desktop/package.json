@@ -59,13 +59,17 @@
     "fileAssociations": [
       {
         "ext": "pdf",
-        "name": "PDF",
-        "role": "Editor"
+        "name": "Document PDF",
+        "description": "Document PDF",
+        "role": "Editor",
+        "icon": "pdf.ico"
       },
       {
         "ext": "epub",
-        "name": "EPUB",
-        "role": "Viewer"
+        "name": "Livre EPUB",
+        "description": "Livre numérique EPUB",
+        "role": "Viewer",
+        "icon": "epub.ico"
       }
     ],
     "mac": {
