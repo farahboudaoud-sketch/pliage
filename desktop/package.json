@@ -9,7 +9,8 @@
   "scripts": {
     "prepare-www": "node copy-www.mjs",
     "start": "node copy-www.mjs && electron .",
-    "dist": "node copy-www.mjs && electron-builder --win nsis portable --publish never"
+    "dist": "node copy-www.mjs && electron-builder --win nsis portable --publish never",
+    "dist:mac": "node copy-www.mjs && electron-builder --mac dmg --publish never"
   },
   "dependencies": {
     "ffmpeg-static": "^5.2.0",
@@ -23,10 +24,27 @@
     "appId": "fr.pliage.desktop",
     "productName": "Pliage",
     "copyright": "Pliage",
-    "files": ["main.js", "preload.js", "online.js", "www/**/*", "package.json"],
-    "asarUnpack": ["node_modules/ffmpeg-static/**"],
-    "directories": { "output": "dist", "buildResources": "build" },
-    "win": { "icon": "build/icon.png", "target": ["nsis", "portable"] },
+    "files": [
+      "main.js",
+      "preload.js",
+      "online.js",
+      "www/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
@@ -35,10 +53,34 @@
       "shortcutName": "Pliage",
       "artifactName": "Pliage-installation-${version}.exe"
     },
-    "portable": { "artifactName": "Pliage-portable-${version}.exe" },
+    "portable": {
+      "artifactName": "Pliage-portable-${version}.exe"
+    },
     "fileAssociations": [
-      { "ext": "pdf", "name": "PDF", "role": "Editor" },
-      { "ext": "epub", "name": "EPUB", "role": "Viewer" }
-    ]
+      {
+        "ext": "pdf",
+        "name": "PDF",
+        "role": "Editor"
+      },
+      {
+        "ext": "epub",
+        "name": "EPUB",
+        "role": "Viewer"
+      }
+    ],
+    "mac": {
+      "icon": "build/icon.png",
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.productivity",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "artifactName": "Pliage-${version}-${arch}.dmg",
+      "title": "Pliage"
+    }
   }
 }

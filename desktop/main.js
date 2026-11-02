@@ -74,7 +74,12 @@ function createWindow() {
     icon: path.join(__dirname, 'www', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false, spellcheck: false },
   });
-  Menu.setApplicationMenu(null);
+  if (process.platform === 'darwin') {
+    // Sur Mac, le menu donne les raccourcis Cmd+C, Cmd+V, Cmd+Q…
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]));
+  } else {
+    Menu.setApplicationMenu(null);
+  }
   win.loadFile(path.join(__dirname, 'www', 'index.html'));
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file:')) { e.preventDefault(); shell.openExternal(url); } });
@@ -98,6 +103,13 @@ async function flushPending() {
   win.webContents.send('incoming', { files, mode: 'open' });
 }
 
+// Sur Mac, « Ouvrir avec Pliage » arrive par cet évènement
+app.on('open-file', (e, p) => {
+  e.preventDefault();
+  pending.push(p);
+  if (win && !win.webContents.isLoading()) flushPending();
+});
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -111,6 +123,7 @@ if (!app.requestSingleInstanceLock()) {
     createWindow();
   });
   app.on('window-all-closed', () => app.quit());
+  app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 }
 
 // ---------------------------------------------------------------- Fichiers
@@ -162,7 +175,7 @@ h('clearCache', async () => {
 h('saveToDownloads', async (p, name) => {
   const dest = await uniquePath(path.join(app.getPath('downloads'), 'Pliage'), safeName(name));
   await fsp.copyFile(p, dest);
-  return { shown: 'Téléchargements\\Pliage\\' + path.basename(dest), full: dest };
+  return { shown: ['Téléchargements', 'Pliage', path.basename(dest)].join(path.sep), full: dest };
 });
 h('saveAs', async (p, name) => {
   const r = await dialog.showSaveDialog(win, { defaultPath: path.join(app.getPath('documents'), safeName(name)) });
