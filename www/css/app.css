@@ -366,3 +366,9 @@ body.editing #tabs { bottom: 0; }
 .ed:not(.viewing) [data-edit], .ed:not(.viewing) [data-share] { display: none; }
 .ed.viewing .fld { pointer-events: none; }
 .ed [data-edit] { margin-left: 4px; }
+
+/* PC : la barre d'onglets sert aussi de barre de titre (on peut la glisser pour déplacer la fenêtre) */
+.desktop #nav { -webkit-app-region: drag; padding-right: 150px; }
+.desktop #nav button { -webkit-app-region: no-drag; }
+.desktop #screens .screen { top: var(--nav-h); }
+.desktop .scrim, .desktop .busy { top: var(--nav-h); }

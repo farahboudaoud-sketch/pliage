@@ -71,6 +71,9 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1180, height: 860, minWidth: 380, minHeight: 600,
     backgroundColor: '#FAF9F8', title: 'Pliage', autoHideMenuBar: true,
+    // Barre de titre aux couleurs du thème de l'appli (boutons Windows dessinés par-dessus)
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#FFFFFF', symbolColor: '#2A1A1C', height: 54 },
     icon: path.join(__dirname, 'www', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false, spellcheck: false },
   });
@@ -365,6 +368,13 @@ h('importPaths', async (paths) => {
     try { if (fs.statSync(p).isFile()) out.push(await copyIn(p)); } catch (e) { out.push({ error: 'Fichier illisible', name: path.basename(p) }); }
   }
   return out;
+});
+h('setTitleBar', (dark) => {
+  if (!win) return;
+  try {
+    win.setTitleBarOverlay(dark ? { color: '#211A1C', symbolColor: '#F1E9EA', height: 54 } : { color: '#FFFFFF', symbolColor: '#2A1A1C', height: 54 });
+  } catch (e) { /* système sans barre personnalisable */ }
+  win.setBackgroundColor(dark ? '#151112' : '#FAF9F8');
 });
 h('quit', () => app.quit());
 h('version', () => app.getVersion());

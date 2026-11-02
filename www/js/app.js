@@ -11,6 +11,7 @@
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.content = dark ? '#151112' : '#FAF9F8';
+    Native.setTitleBar(dark);
   }
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 

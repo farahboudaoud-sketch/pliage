@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('PliageDesktop', {
   restore: (p) => call('restore', p),
   version: () => call('version'),
   quit: () => call('quit'),
+  setTitleBar: (dark) => call('setTitleBar', dark),
   onIncoming: (cb) => listen('incoming', cb),
   /** Chemin réel d'un fichier glissé dans la fenêtre. */
   pathOf: (file) => (webUtils && webUtils.getPathForFile ? webUtils.getPathForFile(file) : file.path),

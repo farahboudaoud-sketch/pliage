@@ -311,6 +311,7 @@
       return D.importPaths(Array.from(fileList).map((f) => D.pathOf(f)).filter(Boolean));
     },
     showDownloads() { if (D) D.showDownloads(); },
+    setTitleBar(dark) { if (D && D.setTitleBar) D.setTitleBar(dark).catch(() => {}); },
     async version() { if (D) return D.version(); return null; },
   };
 
