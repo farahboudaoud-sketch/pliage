@@ -71,11 +71,25 @@ public class PliagePlugin extends Plugin {
     private final Handler main = new Handler(Looper.getMainLooper());
     private VideoCompressor video;
 
+    private boolean launchedWithFile = false;
+
     @Override
     public void load() {
         instance = this;
         Intent intent = getActivity().getIntent();
-        if (intent != null) handleIncoming(intent);
+        if (intent != null) {
+            String a = intent.getAction();
+            launchedWithFile = Intent.ACTION_VIEW.equals(a) || Intent.ACTION_SEND.equals(a) || Intent.ACTION_SEND_MULTIPLE.equals(a);
+            handleIncoming(intent);
+        }
+    }
+
+    /** L'appli a-t-elle été lancée pour ouvrir un fichier ? (pas d'animation dans ce cas) */
+    @PluginMethod
+    public void launchInfo(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("file", launchedWithFile);
+        call.resolve(ret);
     }
 
     @Override

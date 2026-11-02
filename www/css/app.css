@@ -360,3 +360,9 @@ body.editing #tabs { bottom: 0; }
   .desktop .ed-main .ed-tools { width: 220px; }
   .desktop #nav .nav-brand span { display: none; }
 }
+
+/* Lecture seule (fichier ouvert depuis une autre appli) */
+.ed.viewing .ed-tools, .ed.viewing [data-undo], .ed.viewing [data-redo], .ed.viewing [data-save] { display: none; }
+.ed:not(.viewing) [data-edit], .ed:not(.viewing) [data-share] { display: none; }
+.ed.viewing .fld { pointer-events: none; }
+.ed [data-edit] { margin-left: 4px; }

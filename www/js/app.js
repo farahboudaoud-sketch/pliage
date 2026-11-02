@@ -734,7 +734,8 @@
     // Un PDF ouvert depuis une autre appli arrive directement dans l'éditeur
     if (d.mode === 'open' && files.length === 1 && kind(files[0]) === 'pdf') {
       tab('modifier');
-      Editor.open(files[0]);
+      // Sur le téléphone : lecture seule d'abord, bouton « Modifier » pour éditer
+      Editor.open(files[0], Native.isDesktop ? undefined : { view: true, outside: true });
       return;
     }
     suggest(files, d.mode);
@@ -787,7 +788,10 @@
       const info = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App ? await window.Capacitor.Plugins.App.getInfo() : null;
       if (info) window.PLIAGE_VERSION = info.version;
     } catch (e) { /* rien */ }
-    Intro.play();
+    // Animation seulement au lancement normal sur le téléphone (pas sur PC, pas en ouvrant un fichier)
+    let noIntro = Native.isDesktop;
+    if (!noIntro) { try { noIntro = !!(await Native.launchInfo()).file; } catch (e) { /* rien */ } }
+    if (noIntro) Intro.skip(); else Intro.play();
   }
 
   window.App = { tab, outName, finish, openFile, showEditorEmpty, Ess };

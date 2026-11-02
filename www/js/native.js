@@ -305,6 +305,7 @@
     onBack(cb) { if (App) App.addListener('backButton', cb); },
     exitApp() { if (D) D.quit(); if (App) App.exitApp(); },
     isDesktop: !!D,
+    async launchInfo() { if (P) return P.launchInfo(); return { file: false }; },
     async importDropped(fileList) {
       if (!D) return [];
       return D.importPaths(Array.from(fileList).map((f) => D.pathOf(f)).filter(Boolean));

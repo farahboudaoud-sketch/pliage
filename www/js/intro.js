@@ -68,5 +68,10 @@
     requestAnimationFrame(frame);
   }
 
-  window.Intro = { play };
+  function skip() {
+    const root = document.getElementById('intro');
+    if (root) root.remove();
+  }
+
+  window.Intro = { play, skip };
 })();

@@ -42,7 +42,7 @@
       if (S) close(true);
       S = {
         file, bytes, js, pages, objs: [], undo: [], redo: [], zoom: 1, cat: opts.cat || 'Annoter', tool: 'select',
-        color: '#F2C94C', width: 2, size: 14, shape: 'rect', mask: '#FFFFFF', flatten: false, sel: null,
+        view: !!opts.view, outside: !!opts.outside, color: '#F2C94C', width: 2, size: 14, shape: 'rect', mask: '#FFFFFF', flatten: false, sel: null,
         texts: {}, fields: [], values: {}, dirty: false, rendered: {}, observer: null,
       };
       if (S.cat === 'Signer') { S.tool = 'select'; S.color = '#1A2A6C'; }
@@ -51,7 +51,7 @@
       Store.setLast(file);
       UI.idle();
       if (opts.cat === 'Signer') setTimeout(() => pickTool('sig'), 250);
-      if (S.fields.length && !opts.cat) UI.toast(S.fields.length + ' champ' + (S.fields.length > 1 ? 's' : '') + ' de formulaire à remplir');
+      if (S.fields.length && !opts.cat && !opts.view) UI.toast(S.fields.length + ' champ' + (S.fields.length > 1 ? 's' : '') + ' de formulaire à remplir');
     } catch (e) {
       UI.idle();
       UI.toast(e.message || 'Ouverture impossible', true);
@@ -115,6 +115,8 @@
       <header class="bar ed-top">
         <button class="ib" data-close aria-label="Fermer le document">${UI.icon('back')}</button>
         <div class="bar-t"><span class="t1">${esc(S.file.name)}</span><span class="t2 ed-pg">Page 1 sur ${S.pages.length}</span></div>
+        <button class="ib" data-share aria-label="${Native.isDesktop ? 'Montrer dans le dossier' : 'Partager'}">${UI.icon(Native.isDesktop ? 'folder' : 'share', 20)}</button>
+        <button class="btn sm" data-edit>${UI.icon('pencil', 18)} Modifier</button>
         <button class="ib" data-undo aria-label="Annuler">${UI.icon('undo', 20)}</button>
         <button class="ib" data-redo aria-label="Rétablir">${UI.icon('redo', 20)}</button>
         <button class="btn sm" data-save>Enregistrer</button>
@@ -142,7 +144,14 @@
     </div>`);
     host.appendChild(root);
     S.root = root;
+    root.classList.toggle('viewing', !!S.view);
     root.querySelector('[data-close]').addEventListener('click', tryClose);
+    root.querySelector('[data-share]').addEventListener('click', () => Native.share([S.file.path]).catch((e) => UI.toast(e.message, true)));
+    root.querySelector('[data-edit]').addEventListener('click', () => {
+      S.view = false;
+      root.classList.remove('viewing');
+      setTimeout(() => buildPages(), 30);
+    });
     root.querySelector('[data-undo]').addEventListener('click', undo);
     root.querySelector('[data-redo]').addEventListener('click', redo);
     root.querySelector('[data-save]').addEventListener('click', saveFlow);
@@ -979,6 +988,8 @@
     if (!S) return false;
     if (S.sel) { select(null); return true; }
     if (S.tool !== 'select' && S.tool !== 'fields') { S.tool = CATS[S.cat][0][0]; renderTools(); return true; }
+    // Ouvert depuis une autre appli et seulement lu : le retour ramène à cette appli
+    if (S.view && S.outside) { close(); App.tab('outils'); Native.exitApp(); return true; }
     tryClose();
     return true;
   }
