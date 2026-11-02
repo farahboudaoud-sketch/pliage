@@ -18,6 +18,8 @@
   };
 
   let S = null; // état de l'éditeur ouvert
+  // Sur PC, les consignes parlent de souris
+  const say = (t) => (Native.isDesktop ? String(t).replace(/Touche/g, 'Clique').replace(/touche/g, 'clique').replace(/Glisse le doigt/g, 'Fais glisser la souris').replace(/Glisse/g, 'Fais glisser').replace(/Dessine sur la page/, 'Dessine sur la page avec la souris') : t);
   const hex = (h) => rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const esc = UI.esc;
@@ -101,6 +103,7 @@
     if (S.observer) S.observer.disconnect();
     try { S.js.destroy(); } catch (e) { /* rien */ }
     S = null;
+    document.body.classList.remove('editing');
     if (!silent) App.showEditorEmpty();
   }
 
@@ -116,13 +119,25 @@
         <button class="ib" data-redo aria-label="Rétablir">${UI.icon('redo', 20)}</button>
         <button class="btn sm" data-save>Enregistrer</button>
       </header>
-      <div class="ed-scroll"><div class="ed-pages"></div>
-        <div class="ed-zoom"><button class="ib" data-zout aria-label="Dézoomer">${UI.icon('zoomout', 20)}</button><button class="ib" data-zin aria-label="Zoomer">${UI.icon('zoomin', 20)}</button></div>
-      </div>
-      <div class="ed-tools">
-        <div class="ed-cats" role="tablist"></div>
-        <div class="ed-row"></div>
-        <div class="ed-opts"></div>
+      <div class="ed-main">
+        <aside class="ed-tools" aria-label="Outils de modification">
+          <div class="ed-side-t">Outils de modification</div>
+          <div class="ed-cats" role="tablist"></div>
+          <div class="ed-row"></div>
+          <div class="ed-opts"></div>
+        </aside>
+        <div class="ed-scroll"><div class="ed-pages"></div>
+          <div class="ed-zoom"><button class="ib" data-zout aria-label="Dézoomer">${UI.icon('zoomout', 20)}</button><button class="ib" data-zin aria-label="Zoomer">${UI.icon('zoomin', 20)}</button></div>
+        </div>
+        <div class="ed-rail" aria-label="Pages et zoom">
+          <button class="ib" data-rzin aria-label="Zoomer" title="Zoomer">${UI.icon('zoomin', 20)}</button>
+          <button class="ib" data-rzout aria-label="Dézoomer" title="Dézoomer">${UI.icon('zoomout', 20)}</button>
+          <button class="ib" data-fit aria-label="Ajuster à la largeur" title="Ajuster à la largeur">${UI.icon('slides', 20)}</button>
+          <span class="rail-sep"></span>
+          <button class="ib" data-prev aria-label="Page précédente" title="Page précédente">${UI.icon('up', 20)}</button>
+          <div class="rail-pages">${S.pages.length <= 60 ? S.pages.map((p, i) => `<button class="rp${i === 0 ? ' on' : ''}" data-goto="${i}" aria-label="Page ${i + 1}">${i + 1}</button>`).join('') : ''}</div>
+          <button class="ib" data-next aria-label="Page suivante" title="Page suivante">${UI.icon('down', 20)}</button>
+        </div>
       </div>
     </div>`);
     host.appendChild(root);
@@ -133,8 +148,15 @@
     root.querySelector('[data-save]').addEventListener('click', saveFlow);
     root.querySelector('[data-zin]').addEventListener('click', () => setZoom(S.zoom * 1.25));
     root.querySelector('[data-zout]').addEventListener('click', () => setZoom(S.zoom / 1.25));
+    root.querySelector('[data-rzin]').addEventListener('click', () => setZoom(S.zoom * 1.25));
+    root.querySelector('[data-rzout]').addEventListener('click', () => setZoom(S.zoom / 1.25));
+    root.querySelector('[data-fit]').addEventListener('click', () => { S.zoom = 1.0001; setZoom(1); });
+    root.querySelector('[data-prev]').addEventListener('click', () => goto((S.current || 0) - 1));
+    root.querySelector('[data-next]').addEventListener('click', () => goto((S.current || 0) + 1));
+    root.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => goto(+b.dataset.goto)));
     const scroll = root.querySelector('.ed-scroll');
     scroll.addEventListener('scroll', () => updatePageLabel(), { passive: true });
+    document.body.classList.add('editing');
     pinch(scroll);
     buildPages();
     renderTools();
@@ -240,6 +262,13 @@
     });
   }
 
+  function goto(i) {
+    if (!S) return;
+    i = Math.max(0, Math.min(S.pages.length - 1, i));
+    const el = S.root.querySelector(`.ed-page[data-page="${i}"]`);
+    if (el) S.root.querySelector('.ed-scroll').scrollTo({ top: el.offsetTop - 12, behavior: 'smooth' });
+  }
+
   function updatePageLabel() {
     const scroll = S.root.querySelector('.ed-scroll');
     const pages = S.root.querySelectorAll('.ed-page');
@@ -248,6 +277,7 @@
     pages.forEach((p, i) => { if (p.offsetTop <= mid) cur = i; });
     S.current = cur;
     S.root.querySelector('.ed-pg').textContent = `Page ${cur + 1} sur ${S.pages.length}`;
+    S.root.querySelectorAll('.rp').forEach((b, i) => b.classList.toggle('on', i === cur));
   }
 
   function renderTools() {
@@ -286,7 +316,7 @@
     if (t === 'fields') html = `<span class="hint">${S.fields.length ? HINTS.fields : 'Aucun champ de formulaire dans ce PDF : utilise Ajouter (onglet Texte) pour écrire où tu veux.'}</span>`;
     if (S.cat === 'Formulaire') html += `<label class="chk"><input type="checkbox" data-flat ${S.flatten ? 'checked' : ''}> Aplatir à l’enregistrement</label>`;
     if (!html && HINTS[t]) html = `<span class="hint">${HINTS[t]}</span>`;
-    o.innerHTML = `<div class="ed-opts1">${html}</div>`;
+    o.innerHTML = say(`<div class="ed-opts1">${html}</div>`);
     o.querySelectorAll('[data-color]').forEach((b) => b.addEventListener('click', () => { S.color = b.dataset.color; if (S.sel) restyleSel({ color: S.color }); renderOpts(); }));
     o.querySelectorAll('[data-width]').forEach((b) => b.addEventListener('click', () => { S.width = +b.dataset.width; renderOpts(); }));
     o.querySelectorAll('[data-shape]').forEach((b) => b.addEventListener('click', () => { S.shape = b.dataset.shape; renderOpts(); }));
@@ -333,7 +363,7 @@
     }
     S.tool = id;
     renderTools();
-    if (HINTS[id] && id !== 'fields') UI.toast(HINTS[id]);
+    if (HINTS[id] && id !== 'fields') UI.toast(say(HINTS[id]));
   }
 
   function b64(u8) {
@@ -744,7 +774,7 @@
     } else if (t === 'replace') {
       const info = await textItems(page);
       const line = info.lines.find((l) => y >= l.y - l.size * 0.95 && y <= l.y + l.size * 0.3 && x >= l.x - 4 && x <= l.x2 + 4);
-      if (!line) return UI.toast('Touche directement une ligne de texte');
+      if (!line) return UI.toast(say('Touche directement une ligne de texte'));
       const v = await UI.ask('Remplacer le texte', line.text, 'Remplacer', { hint: 'La ligne d’origine est recouverte puis réécrite à la même taille.', allowEmpty: true });
       if (v == null) return;
       const pad = line.size * 0.08;
@@ -931,6 +961,18 @@
       UI.toast(e.message || 'Enregistrement impossible', true);
     }
   }
+
+  document.addEventListener('keydown', (e) => {
+    if (!S || !S.root || !S.root.isConnected || S.root.closest('[hidden]')) return;
+    if (e.target.closest('input, textarea, select, [contenteditable]')) return;
+    const k = e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+    else if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); }
+    else if ((e.ctrlKey || e.metaKey) && k === 's') { e.preventDefault(); saveFlow(); }
+    else if ((e.ctrlKey || e.metaKey) && (k === '+' || k === '=')) { e.preventDefault(); setZoom(S.zoom * 1.25); }
+    else if ((e.ctrlKey || e.metaKey) && k === '-') { e.preventDefault(); setZoom(S.zoom / 1.25); }
+    else if ((k === 'delete' || k === 'backspace') && S.sel) { e.preventDefault(); selAction('del'); }
+  });
 
   function isOpen() { return !!S; }
   function handleBack() {

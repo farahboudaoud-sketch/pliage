@@ -20,7 +20,7 @@
 
   function nav() {
     const n = document.getElementById('nav');
-    n.innerHTML = TABS.map(([id, label, ic]) => `<button data-tab="${id}" class="${id === current ? 'on' : ''}" aria-current="${id === current ? 'page' : 'false'}"><span class="pill">${icon(ic, 22)}</span><span>${label}</span></button>`).join('');
+    n.innerHTML = (Native.isDesktop ? `<div class="nav-brand">${UI.BIRD}<span>Pliage</span></div>` : '') + TABS.map(([id, label, ic]) => `<button data-tab="${id}" class="${id === current ? 'on' : ''}" aria-current="${id === current ? 'page' : 'false'}"><span class="pill">${icon(ic, 22)}</span><span>${label}</span></button>`).join('');
     n.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => tab(b.dataset.tab)));
   }
 
@@ -731,6 +731,12 @@
     files.forEach((f) => Store.addHistory({ name: f.name, path: f.path, size: f.size, mime: f.mime, tool: d.mode === 'share' ? 'Reçu' : 'Ouvert' }));
     UI.popAll();
     if (current === 'fichiers') renderFichiers();
+    // Un PDF ouvert depuis une autre appli arrive directement dans l'éditeur
+    if (d.mode === 'open' && files.length === 1 && kind(files[0]) === 'pdf') {
+      tab('modifier');
+      Editor.open(files[0]);
+      return;
+    }
     suggest(files, d.mode);
   }
 

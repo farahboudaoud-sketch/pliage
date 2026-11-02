@@ -262,7 +262,13 @@ textarea.field { resize: vertical; }
 textarea.fld { resize: none; }
 .fld.cb { margin: 0; accent-color: #2D6CDF; }
 .ed-zoom { position: sticky; bottom: 12px; left: 100%; float: right; margin: -60px 12px 12px 0; display: flex; gap: 4px; background: var(--card); border: 1px solid var(--bd); border-radius: 14px; padding: 2px; z-index: 2; }
-.ed-tools { background: var(--card); border-top: 1px solid var(--bd); flex-shrink: 0; }
+.ed-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ed-main .ed-scroll { order: 1; }
+.ed-tools { order: 2; background: var(--card); border-top: 1px solid var(--bd); flex-shrink: 0; }
+.ed-side-t, .ed-rail { display: none; }
+/* Plein écran pendant l'édition sur téléphone : la barre d'onglets se cache */
+body.editing:not(.no-full) #nav { display: none; }
+body.editing #tabs { bottom: 0; }
 .ed-cats { display: flex; padding: 0 6px; border-bottom: 1px solid var(--bd2); }
 .ed-cats button { flex: 1; min-height: 44px; font-size: 13.5px; font-weight: 500; color: var(--muted); text-align: center; border-bottom: 2px solid transparent; }
 .ed-cats button.on { color: var(--acc); border-bottom-color: var(--acc); }
@@ -313,3 +319,44 @@ textarea.fld { resize: none; }
 .desktop .page { max-width: 980px; }
 .desktop .tiles { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .desktop .tile { min-height: 80px; }
+
+/* ---- PC : barre d'onglets en haut, volet d'outils à gauche dans l'éditeur ---- */
+.desktop { --nav-h: 54px; }
+.desktop #nav { top: 0; bottom: auto; height: var(--nav-h); padding: 0 16px; border-top: none; border-bottom: 1px solid var(--bd); justify-content: flex-start; gap: 6px; }
+.desktop #nav .nav-brand { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 600; margin-right: 22px; }
+.desktop #nav .nav-brand .bird { width: 26px; height: 21px; }
+.desktop #nav button { flex-direction: row; gap: 8px; min-width: 0; height: var(--nav-h); padding: 0 14px; font-size: 14px; border-bottom: 2px solid transparent; border-radius: 0; }
+.desktop #nav .pill { width: auto; height: auto; background: none !important; }
+.desktop #nav button.on { border-bottom-color: var(--acc); }
+.desktop #tabs, .desktop body.editing #tabs { inset: var(--nav-h) 0 0 0; }
+.desktop body.editing #nav { display: flex; }
+.desktop #toast { bottom: 28px; }
+.desktop .fab { bottom: 24px; }
+.desktop .page { padding-top: 22px; }
+.desktop .ed-top { padding-top: 6px; padding-bottom: 6px; }
+.desktop .ed-main { flex-direction: row; }
+.desktop .ed-main .ed-tools { order: 0; width: 280px; border-top: none; border-right: 1px solid var(--bd); overflow-y: auto; display: flex; flex-direction: column; }
+.desktop .ed-side-t { display: block; padding: 16px 18px 8px; font-size: 16px; font-weight: 600; }
+.desktop .ed-cats { flex-wrap: wrap; padding: 0 12px 8px; gap: 4px; border-bottom: 1px solid var(--bd2); }
+.desktop .ed-cats button { flex: 1 1 45%; min-height: 34px; border: 1px solid var(--bd); border-radius: 8px; font-size: 13px; }
+.desktop .ed-cats button.on { background: var(--pill); border-color: var(--acc); }
+.desktop .ed-row { flex-direction: column; overflow: visible; padding: 8px 10px; gap: 2px; }
+.desktop .tool { flex: 0 0 auto; flex-direction: row; justify-content: flex-start; gap: 14px; min-height: 44px; padding: 0 12px; font-size: 14px; }
+.desktop .tool:hover { background: var(--tint); }
+.desktop .tool.on { background: var(--pill); }
+.desktop .ed-opts { padding: 8px 16px 16px; border-top: 1px solid var(--bd2); }
+.desktop .ed-opts1, .desktop .ed-opts2 { flex-wrap: wrap; }
+.desktop .ed-opts .chk { margin-left: 0; width: 100%; }
+.desktop .ed-zoom { display: none; }
+.desktop .ed-rail { display: flex; order: 2; width: 56px; flex-shrink: 0; flex-direction: column; align-items: center; gap: 2px; padding: 10px 0; background: var(--card); border-left: 1px solid var(--bd); overflow-y: auto; }
+.desktop .ed-rail .ib { color: var(--muted); }
+.desktop .ed-rail .ib:hover { background: var(--tint); color: var(--acc); }
+.rail-sep { width: 28px; height: 1px; background: var(--bd); margin: 6px 0; }
+.rail-pages { display: flex; flex-direction: column; gap: 2px; align-items: center; }
+.rp { width: 38px; height: 32px; border-radius: 8px; font-size: 13px; color: var(--muted); text-align: center; }
+.rp.on { background: var(--pill); color: var(--acc); font-weight: 600; box-shadow: inset 0 0 0 1px var(--acc); }
+.rp:hover { background: var(--tint); }
+@media (max-width: 760px) {
+  .desktop .ed-main .ed-tools { width: 220px; }
+  .desktop #nav .nav-brand span { display: none; }
+}
