@@ -62,14 +62,14 @@
         "name": "Document PDF",
         "description": "Document PDF",
         "role": "Editor",
-        "icon": "pdf.ico"
+        "icon": "pdf"
       },
       {
         "ext": "epub",
         "name": "Livre EPUB",
         "description": "Livre numérique EPUB",
         "role": "Viewer",
-        "icon": "epub.ico"
+        "icon": "epub"
       }
     ],
     "mac": {
@@ -80,19 +80,7 @@
       "category": "public.app-category.productivity",
       "identity": "-",
       "hardenedRuntime": false,
-      "gatekeeperAssess": false,
-      "fileAssociations": [
-        {
-          "ext": "pdf",
-          "name": "Document PDF",
-          "role": "Editor"
-        },
-        {
-          "ext": "epub",
-          "name": "Livre EPUB",
-          "role": "Viewer"
-        }
-      ]
+      "gatekeeperAssess": false
     },
     "dmg": {
       "artifactName": "Pliage-${version}-${arch}.dmg",
