@@ -372,3 +372,33 @@ body.editing #tabs { bottom: 0; }
 .desktop #nav button { -webkit-app-region: no-drag; }
 .desktop #screens .screen { top: var(--nav-h); }
 .desktop .scrim, .desktop .busy { top: var(--nav-h); }
+
+/* Documents ouverts en onglets */
+.ed-host { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.ed-docs { flex: 1; min-height: 0; position: relative; }
+.ed-tabs { display: none; flex-shrink: 0; gap: 2px; padding: calc(var(--sat) + 6px) 8px 0; background: var(--tint); border-bottom: 1px solid var(--bd); overflow-x: auto; scrollbar-width: none; align-items: flex-end; }
+.ed-tabs::-webkit-scrollbar { display: none; }
+.ed-host.multi .ed-tabs, .desktop .ed-tabs { display: flex; }
+.ed-host.multi .ed-top, .desktop .ed-top { padding-top: 6px; }
+.edt { display: flex; align-items: center; max-width: 230px; min-width: 110px; height: 38px; border-radius: 10px 10px 0 0; background: transparent; color: var(--muted); border: 1px solid transparent; border-bottom: none; flex-shrink: 0; }
+.edt.on { background: var(--card); color: var(--fg); border-color: var(--bd); margin-bottom: -1px; height: 39px; }
+.edt-n { flex: 1; min-width: 0; padding: 0 4px 0 12px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 100%; display: flex; align-items: center; gap: 6px; }
+.edt-n .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--acc); flex-shrink: 0; }
+.edt-x { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0; margin-right: 3px; }
+.edt-x:hover, .edt-add:hover { background: var(--pill); color: var(--acc); }
+.edt-add { width: 36px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0; margin: 0 0 3px 4px; }
+.desktop .ed-tabs { padding-top: 6px; }
+
+/* Texte sélectionnable (copier) */
+.ed-page .textLayer { position: absolute; inset: 0; overflow: hidden; line-height: 1; text-align: initial; transform-origin: 0 0; z-index: 1; opacity: 1; -webkit-text-size-adjust: none; text-size-adjust: none; forced-color-adjust: none; }
+.ed-page .textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+.ed-page .textLayer span.markedContent { top: 0; height: 0; }
+.ed-page .textLayer ::selection { background: rgba(45, 108, 223, .32); }
+.ed-page .textLayer br::selection { background: transparent; }
+.ed-page .textLayer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: -1; cursor: default; user-select: none; }
+.ed-page .textLayer .endOfContent.active { top: 0; }
+.ed-ov { z-index: 2; pointer-events: none; }
+.ed-ov .ed-handle { pointer-events: all; cursor: nwse-resize; }
+.ed-fields { z-index: 3; }
+.ed.drawing .textLayer { pointer-events: none; user-select: none; -webkit-user-select: none; }
+.rail-z { font-size: 11.5px; color: var(--muted); font-weight: 500; min-height: 20px; display: flex; align-items: center; }

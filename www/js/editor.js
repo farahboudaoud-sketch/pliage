@@ -17,7 +17,8 @@
     fields: 'Remplis les champs directement sur la page',
   };
 
-  let S = null; // état de l'éditeur ouvert
+  let S = null; // document actif
+  const sessions = []; // documents ouverts (onglets)
   // Sur PC, les consignes parlent de souris
   const say = (t) => (Native.isDesktop ? String(t).replace(/Touche/g, 'Clique').replace(/touche/g, 'clique').replace(/Glisse le doigt/g, 'Fais glisser la souris').replace(/Glisse/g, 'Fais glisser').replace(/Dessine sur la page/, 'Dessine sur la page avec la souris') : t);
   const hex = (h) => rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
@@ -26,9 +27,63 @@
 
   // ---------------------------------------------------------------- Ouverture
 
+  /** Conteneur de l'éditeur : barre d'onglets + documents. */
+  function host() {
+    const tab = document.getElementById('tab-modifier');
+    let h = tab.querySelector(':scope > .ed-host');
+    if (!h) {
+      tab.innerHTML = '';
+      h = UI.el('<div class="ed-host"><div class="ed-tabs" role="tablist" aria-label="Documents ouverts"></div><div class="ed-docs"></div></div>');
+      tab.appendChild(h);
+    }
+    return h;
+  }
+
+  function renderTabs() {
+    const h = document.querySelector('#tab-modifier > .ed-host');
+    if (!h) return;
+    const bar = h.querySelector('.ed-tabs');
+    h.classList.toggle('multi', sessions.length > 1);
+    bar.innerHTML = sessions.map((s, i) => `<div class="edt${s === S ? ' on' : ''}" role="tab" aria-selected="${s === S}" data-i="${i}" title="${esc(s.file.name)}">
+      <button class="edt-n" data-act="${i}">${s.dirty ? '<i class="dot" aria-label="Modifié"></i>' : ''}${esc(s.file.name)}</button>
+      <button class="edt-x" data-x="${i}" aria-label="Fermer ${esc(s.file.name)}">${UI.icon('close', 15)}</button></div>`).join('')
+      + `<button class="edt-add" data-add aria-label="Ouvrir un autre PDF" title="Ouvrir un autre PDF">${UI.icon('plus', 18)}</button>`;
+    bar.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => activate(sessions[+b.dataset.act])));
+    bar.querySelectorAll('[data-x]').forEach((b) => b.addEventListener('click', async () => { activate(sessions[+b.dataset.x]); await tryClose(); }));
+    bar.querySelector('[data-add]').addEventListener('click', async () => {
+      const files = (await Native.pick(['application/pdf'], true)).filter((f) => !f.error);
+      for (const f of files) {
+        Store.addHistory({ name: f.name, path: f.path, size: f.size, mime: f.mime, tool: 'Ouvert' });
+        await open(f);
+      }
+    });
+    const on = bar.querySelector('.edt.on');
+    if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  function activate(s) {
+    if (!s) return;
+    const prevW = S && S.root ? S.root.querySelector('.ed-scroll').clientWidth : 0;
+    S = s;
+    sessions.forEach((x) => { if (x.root) x.root.hidden = x !== s; });
+    document.body.classList.add('editing');
+    renderTabs();
+    requestAnimationFrame(() => {
+      if (S !== s) return;
+      const w = s.root.querySelector('.ed-scroll').clientWidth;
+      if (s.builtW && Math.abs(w - s.builtW) > 4 && w !== prevW) buildPages();
+      updatePageLabel();
+    });
+  }
+
   async function open(file, opts) {
     opts = opts || {};
-    const host = document.getElementById('tab-modifier');
+    const same = sessions.find((x) => x.file.path === file.path);
+    if (same) {
+      activate(same);
+      if (same.view && opts.view === undefined) { same.view = false; same.root.classList.remove('viewing'); }
+      return;
+    }
     UI.busy('Ouverture du PDF…');
     try {
       const bytes = await Native.read(file.path);
@@ -39,15 +94,16 @@
         const vp = p.getViewport({ scale: 1 });
         pages.push({ w: vp.width, h: vp.height, vp });
       }
-      if (S) close(true);
       S = {
         file, bytes, js, pages, objs: [], undo: [], redo: [], zoom: 1, cat: opts.cat || 'Annoter', tool: 'select',
         view: !!opts.view, outside: !!opts.outside, color: '#F2C94C', width: 2, size: 14, shape: 'rect', mask: '#FFFFFF', flatten: false, sel: null,
         texts: {}, fields: [], values: {}, dirty: false, rendered: {}, observer: null,
       };
       if (S.cat === 'Signer') { S.tool = 'select'; S.color = '#1A2A6C'; }
+      sessions.push(S);
       await loadFields();
-      build(host);
+      build(host().querySelector('.ed-docs'));
+      activate(S);
       Store.setLast(file);
       UI.idle();
       if (opts.cat === 'Signer') setTimeout(() => pickTool('sig'), 250);
@@ -100,9 +156,14 @@
 
   function close(silent) {
     if (!S) return;
-    if (S.observer) S.observer.disconnect();
-    try { S.js.destroy(); } catch (e) { /* rien */ }
+    const s = S;
+    if (s.observer) s.observer.disconnect();
+    try { s.js.destroy(); } catch (e) { /* rien */ }
+    if (s.root) s.root.remove();
+    const i = sessions.indexOf(s);
+    if (i >= 0) sessions.splice(i, 1);
     S = null;
+    if (sessions.length) { activate(sessions[Math.min(i, sessions.length - 1)]); return; }
     document.body.classList.remove('editing');
     if (!silent) App.showEditorEmpty();
   }
@@ -110,7 +171,6 @@
   // ---------------------------------------------------------------- Interface
 
   function build(host) {
-    host.innerHTML = '';
     const root = UI.el(`<div class="ed">
       <header class="bar ed-top">
         <button class="ib" data-close aria-label="Fermer le document">${UI.icon('back')}</button>
@@ -134,7 +194,8 @@
         <div class="ed-rail" aria-label="Pages et zoom">
           <button class="ib" data-rzin aria-label="Zoomer" title="Zoomer">${UI.icon('zoomin', 20)}</button>
           <button class="ib" data-rzout aria-label="Dézoomer" title="Dézoomer">${UI.icon('zoomout', 20)}</button>
-          <button class="ib" data-fit aria-label="Ajuster à la largeur" title="Ajuster à la largeur">${UI.icon('slides', 20)}</button>
+          <span class="rail-z" aria-live="polite">100 %</span>
+          <button class="ib" data-fit aria-label="Ajuster à la largeur" title="Ajuster à la largeur (Ctrl+0)">${UI.icon('slides', 20)}</button>
           <span class="rail-sep"></span>
           <button class="ib" data-prev aria-label="Page précédente" title="Page précédente">${UI.icon('up', 20)}</button>
           <div class="rail-pages">${S.pages.length <= 60 ? S.pages.map((p, i) => `<button class="rp${i === 0 ? ' on' : ''}" data-goto="${i}" aria-label="Page ${i + 1}">${i + 1}</button>`).join('') : ''}</div>
@@ -165,6 +226,7 @@
     root.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => goto(+b.dataset.goto)));
     const scroll = root.querySelector('.ed-scroll');
     scroll.addEventListener('scroll', () => updatePageLabel(), { passive: true });
+    wheelZoom(scroll);
     document.body.classList.add('editing');
     pinch(scroll);
     buildPages();
@@ -192,12 +254,16 @@
     S.scale = fitScale() * S.zoom;
     if (S.observer) S.observer.disconnect();
     S.rendered = {};
+    S.builtW = S.root.querySelector('.ed-scroll').clientWidth;
+    const zl = S.root.querySelector('.rail-z');
+    if (zl) zl.textContent = Math.round(S.zoom * 100) + ' %';
+    const sess = S;
     S.observer = new IntersectionObserver((entries) => {
-      entries.forEach((en) => { if (en.isIntersecting) renderPage(+en.target.dataset.page); });
+      entries.forEach((en) => { if (en.isIntersecting) renderPage(sess, +en.target.dataset.page); });
     }, { root: S.root.querySelector('.ed-scroll'), rootMargin: '400px 0px' });
     S.pages.forEach((p, i) => {
       const d = UI.el(`<div class="ed-page" data-page="${i}" style="width:${Math.round(p.w * S.scale)}px;height:${Math.round(p.h * S.scale)}px">
-        <canvas></canvas>
+        <canvas></canvas><div class="textLayer"></div>
         <svg class="ed-ov" viewBox="0 0 ${p.w} ${p.h}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
         <div class="ed-fields"></div></div>`);
       wrap.appendChild(d);
@@ -208,16 +274,16 @@
     });
   }
 
-  async function renderPage(i) {
-    const key = i + '@' + S.scale.toFixed(3);
-    if (S.rendered[i] === key) return;
-    S.rendered[i] = key;
-    const d = S.root.querySelector(`.ed-page[data-page="${i}"]`);
+  async function renderPage(s, i) {
+    const key = i + '@' + s.scale.toFixed(3);
+    if (s.rendered[i] === key) return;
+    s.rendered[i] = key;
+    const d = s.root.querySelector(`.ed-page[data-page="${i}"]`);
     if (!d) return;
     const cv = d.querySelector('canvas');
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-    const page = await S.js.getPage(i + 1);
-    const vp = page.getViewport({ scale: S.scale * dpr });
+    const page = await s.js.getPage(i + 1);
+    const vp = page.getViewport({ scale: s.scale * dpr });
     const tmp = document.createElement('canvas');
     tmp.width = Math.floor(vp.width);
     tmp.height = Math.floor(vp.height);
@@ -227,11 +293,42 @@
     try {
       await page.render({ canvasContext: g, viewport: vp, annotationMode: pdfjsLib.AnnotationMode ? pdfjsLib.AnnotationMode.ENABLE : 1 }).promise;
     } catch (e) { return; }
-    if (!S || S.rendered[i] !== key) return;
+    if (s.rendered[i] !== key || !d.isConnected) return;
     cv.width = tmp.width;
     cv.height = tmp.height;
     cv.getContext('2d').drawImage(tmp, 0, 0);
     tmp.width = tmp.height = 0;
+    // Couche de texte invisible : permet de sélectionner et copier le texte
+    try {
+      const layer = d.querySelector('.textLayer');
+      const tvp = page.getViewport({ scale: s.scale });
+      layer.innerHTML = '';
+      layer.style.setProperty('--scale-factor', String(s.scale));
+      const task = pdfjsLib.renderTextLayer({ textContentSource: page.streamTextContent({ includeMarkedContent: true }), container: layer, viewport: tvp, textDivs: [] });
+      await task.promise;
+      const end = document.createElement('div');
+      end.className = 'endOfContent';
+      layer.appendChild(end);
+    } catch (e) { /* pas de texte sélectionnable sur cette page */ }
+  }
+
+  /** Ctrl + molette (ou pincement sur le pavé tactile) pour zoomer. */
+  function wheelZoom(scroll) {
+    let acc = 1, timer = null, z0 = 1;
+    scroll.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      if (!S) return;
+      if (acc === 1) z0 = S.zoom;
+      acc *= Math.exp(-e.deltaY * 0.0022);
+      acc = Math.max(0.6 / z0, Math.min(4 / z0, acc));
+      const pages = scroll.querySelector('.ed-pages');
+      pages.style.transform = `scale(${acc})`;
+      const zl = S.root.querySelector('.rail-z');
+      if (zl) zl.textContent = Math.round(z0 * acc * 100) + ' %';
+      clearTimeout(timer);
+      timer = setTimeout(() => { pages.style.transform = ''; const k = acc; acc = 1; setZoom(z0 * k); }, 220);
+    }, { passive: false });
   }
 
   function setZoom(z) {
@@ -387,7 +484,7 @@
     S.undo.push(clone(S.objs));
     if (S.undo.length > 80) S.undo.shift();
     S.redo = [];
-    S.dirty = true;
+    if (!S.dirty) { S.dirty = true; renderTabs(); }
   }
   function undo() {
     if (!S.undo.length) return UI.toast('Rien à annuler');
@@ -822,11 +919,11 @@
         n = UI.el(f.multiline ? `<textarea class="fld" style="${style}" aria-label="${esc(f.name)}"></textarea>` : `<input class="fld" style="${style}" aria-label="${esc(f.name)}">`);
         n.value = S.values[f.name] || '';
         n.style.fontSize = Math.max(8, Math.min(18, Math.abs(y2 - y1) * S.scale * 0.6)) + 'px';
-        n.addEventListener('input', () => { S.values[f.name] = n.value; S.dirty = true; syncSame(f, n); });
+        n.addEventListener('input', () => { S.values[f.name] = n.value; if (!S.dirty) { S.dirty = true; renderTabs(); } syncSame(f, n); });
       } else if (f.type === 'check') {
         n = UI.el(`<input type="checkbox" class="fld cb" style="${style}" aria-label="${esc(f.name)}">`);
         n.checked = !!S.values[f.name];
-        n.addEventListener('change', () => { S.values[f.name] = n.checked; S.dirty = true; syncSame(f, n); });
+        n.addEventListener('change', () => { S.values[f.name] = n.checked; if (!S.dirty) { S.dirty = true; renderTabs(); } syncSame(f, n); });
       } else if (f.type === 'radio') {
         n = UI.el(`<input type="radio" class="fld cb" style="${style}" name="r-${esc(f.name)}" aria-label="${esc(f.name + ' ' + (f.option || ''))}">`);
         n.checked = S.values[f.name] === f.option && f.option != null;
@@ -964,6 +1061,7 @@
       const name = App.outName(S.file.name, 'modifié', 'pdf');
       const res = await App.finish([{ bytes, name }], { tool: 'Modifié', source: S.file, from: 'editor' });
       S.dirty = false;
+      renderTabs();
       void res;
     } catch (e) {
       UI.idle();
@@ -980,6 +1078,9 @@
     else if ((e.ctrlKey || e.metaKey) && k === 's') { e.preventDefault(); saveFlow(); }
     else if ((e.ctrlKey || e.metaKey) && (k === '+' || k === '=')) { e.preventDefault(); setZoom(S.zoom * 1.25); }
     else if ((e.ctrlKey || e.metaKey) && k === '-') { e.preventDefault(); setZoom(S.zoom / 1.25); }
+    else if ((e.ctrlKey || e.metaKey) && k === '0') { e.preventDefault(); S.zoom = 1.0001; setZoom(1); }
+    else if ((e.ctrlKey || e.metaKey) && k === 'w') { e.preventDefault(); tryClose(); }
+    else if (e.ctrlKey && k === 'tab' && sessions.length > 1) { e.preventDefault(); const i = sessions.indexOf(S); activate(sessions[(i + (e.shiftKey ? -1 : 1) + sessions.length) % sessions.length]); }
     else if ((k === 'delete' || k === 'backspace') && S.sel) { e.preventDefault(); selAction('del'); }
   });
 
@@ -993,7 +1094,11 @@
     tryClose();
     return true;
   }
-  function relayout() { if (S && S.root && S.root.isConnected) buildPages(); }
+  function relayout() {
+    if (!S || !S.root || !S.root.isConnected) return;
+    const w = S.root.querySelector('.ed-scroll').clientWidth;
+    if (!S.builtW || Math.abs(w - S.builtW) > 4) buildPages();
+  }
 
   window.Editor = { open, close, isOpen, handleBack, relayout, current: () => S && S.file };
 })();

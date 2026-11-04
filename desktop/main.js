@@ -84,6 +84,16 @@ function createWindow() {
     Menu.setApplicationMenu(null);
   }
   win.loadFile(path.join(__dirname, 'www', 'index.html'));
+  // Le zoom se fait dans le document, pas sur toute la fenêtre
+  win.webContents.setVisualZoomLevelLimits(1, 1).catch(() => {});
+  win.webContents.on('zoom-changed', () => win.webContents.setZoomFactor(1));
+  // Clic droit : copier / coller
+  win.webContents.on('context-menu', (e, params) => {
+    const items = [];
+    if (params.isEditable) items.push({ label: 'Couper', role: 'cut' }, { label: 'Copier', role: 'copy' }, { label: 'Coller', role: 'paste' }, { type: 'separator' }, { label: 'Tout sélectionner', role: 'selectAll' });
+    else if (params.selectionText && params.selectionText.trim()) items.push({ label: 'Copier', role: 'copy' });
+    if (items.length) Menu.buildFromTemplate(items).popup({ window: win });
+  });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file:')) { e.preventDefault(); shell.openExternal(url); } });
   win.webContents.on('before-input-event', (e, input) => {
