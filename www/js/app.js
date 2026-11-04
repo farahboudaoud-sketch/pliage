@@ -773,6 +773,7 @@
     window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (current === 'modifier') Editor.relayout(); }, 250); });
     if (Native.isDesktop) {
       document.documentElement.classList.add('desktop');
+      if (window.PliageDesktop.platform === 'darwin') document.documentElement.classList.add('mac');
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape') back(); });
       document.addEventListener('dragover', (e) => { e.preventDefault(); document.body.classList.add('dropping'); });
       document.addEventListener('dragleave', (e) => { if (!e.relatedTarget) document.body.classList.remove('dropping'); });

@@ -402,3 +402,6 @@ body.editing #tabs { bottom: 0; }
 .ed-fields { z-index: 3; }
 .ed.drawing .textLayer { pointer-events: none; user-select: none; -webkit-user-select: none; }
 .rail-z { font-size: 11.5px; color: var(--muted); font-weight: 500; min-height: 20px; display: flex; align-items: center; }
+
+/* Mac : laisse la place aux trois boutons de fenêtre en haut à gauche */
+.mac #nav { padding-left: 86px; padding-right: 16px; }
