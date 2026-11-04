@@ -80,7 +80,19 @@
       "category": "public.app-category.productivity",
       "identity": "-",
       "hardenedRuntime": false,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "fileAssociations": [
+        {
+          "ext": "pdf",
+          "name": "Document PDF",
+          "role": "Editor"
+        },
+        {
+          "ext": "epub",
+          "name": "Livre EPUB",
+          "role": "Viewer"
+        }
+      ]
     },
     "dmg": {
       "artifactName": "Pliage-${version}-${arch}.dmg",
