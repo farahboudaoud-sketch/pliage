@@ -312,60 +312,86 @@
     } catch (e) { /* pas de texte sélectionnable sur cette page */ }
   }
 
-  /** Ctrl + molette (ou pincement sur le pavé tactile) pour zoomer. */
+  /** Ctrl + molette (ou pincement sur le pavé tactile) : zoom immédiat, centré sur la souris. */
   function wheelZoom(scroll) {
-    let acc = 1, timer = null, z0 = 1;
     scroll.addEventListener('wheel', (e) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       if (!S) return;
-      if (acc === 1) z0 = S.zoom;
-      acc *= Math.exp(-e.deltaY * 0.0022);
-      acc = Math.max(0.6 / z0, Math.min(4 / z0, acc));
-      const pages = scroll.querySelector('.ed-pages');
-      pages.style.transform = `scale(${acc})`;
-      const zl = S.root.querySelector('.rail-z');
-      if (zl) zl.textContent = Math.round(z0 * acc * 100) + ' %';
-      clearTimeout(timer);
-      timer = setTimeout(() => { pages.style.transform = ''; const k = acc; acc = 1; setZoom(z0 * k); }, 220);
+      const d = Math.max(-60, Math.min(60, e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY));
+      setZoom(S.zoom * Math.exp(-d * 0.0035), { x: e.clientX, y: e.clientY });
     }, { passive: false });
   }
 
-  function setZoom(z) {
+  /**
+   * Change le zoom sans reconstruire les pages : on redimensionne les pages (l'image
+   * actuelle s'étire tout de suite) et on garde sous le doigt ou la souris le même point
+   * du document. Le rendu net est refait juste après, pour les pages visibles.
+   */
+  function setZoom(z, anchor) {
     if (!S) return;
     const nz = Math.max(0.6, Math.min(4, z));
-    if (Math.abs(nz - S.zoom) < 0.01) return;
+    if (Math.abs(nz - S.zoom) < 0.002) return;
     const scroll = S.root.querySelector('.ed-scroll');
-    const ratio = (scroll.scrollTop + scroll.clientHeight / 2) / Math.max(1, scroll.scrollHeight);
+    const box = scroll.getBoundingClientRect();
+    const ax = anchor ? anchor.x - box.left : scroll.clientWidth / 2;
+    const ay = anchor ? anchor.y - box.top : scroll.clientHeight / 2;
+    const s0 = S.scale;
+    const s1 = fitScale() * nz;
+    // Point du document sous l'ancre : page + position dans la page (en points PDF)
+    const els = [...S.root.querySelectorAll('.ed-page')];
+    const cy = scroll.scrollTop + ay, cx = scroll.scrollLeft + ax;
+    let ref = els[0];
+    for (const el of els) { if (el.offsetTop <= cy) ref = el; else break; }
+    const relY = (cy - ref.offsetTop) / s0, relX = (cx - ref.offsetLeft) / s0;
     S.zoom = nz;
-    buildPages();
-    requestAnimationFrame(() => { scroll.scrollTop = ratio * scroll.scrollHeight - scroll.clientHeight / 2; });
+    S.scale = s1;
+    els.forEach((el, i) => {
+      const p = S.pages[i];
+      el.style.width = Math.round(p.w * s1) + 'px';
+      el.style.height = Math.round(p.h * s1) + 'px';
+      const tl = el.querySelector('.textLayer');
+      if (tl) tl.style.setProperty('--scale-factor', String(s1));
+      el.querySelectorAll('.fld:not(.cb)').forEach((f) => { f.style.fontSize = (parseFloat(f.style.fontSize) || 12) * (s1 / s0) + 'px'; });
+    });
+    scroll.scrollLeft = ref.offsetLeft + relX * s1 - ax;
+    scroll.scrollTop = ref.offsetTop + relY * s1 - ay;
+    const zl = S.root.querySelector('.rail-z');
+    if (zl) zl.textContent = Math.round(nz * 100) + ' %';
+    if (S.sel) drawSelection();
+    sharpen();
+  }
+
+  /** Refait le rendu net des pages visibles une fois le zoom stabilisé. */
+  let sharpTimer = null;
+  function sharpen() {
+    clearTimeout(sharpTimer);
+    const s = S;
+    sharpTimer = setTimeout(() => {
+      if (!s || !s.root || !s.root.isConnected) return;
+      const scroll = s.root.querySelector('.ed-scroll');
+      const top = scroll.scrollTop - 300, bot = scroll.scrollTop + scroll.clientHeight + 300;
+      s.root.querySelectorAll('.ed-page').forEach((el) => {
+        if (el.offsetTop + el.offsetHeight >= top && el.offsetTop <= bot) renderPage(s, +el.dataset.page);
+      });
+      s.builtW = scroll.clientWidth;
+    }, 180);
   }
 
   function pinch(scroll) {
-    let d0 = 0, z0 = 1;
+    let d0 = 0, z0 = 1, raf = 0, last = null;
+    const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const mid = (t) => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
     scroll.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 2) {
-        d0 = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        z0 = S.zoom;
-      }
+      if (e.touches.length === 2 && S) { d0 = dist(e.touches); z0 = S.zoom; }
     }, { passive: true });
     scroll.addEventListener('touchmove', (e) => {
-      if (e.touches.length === 2 && d0) {
-        e.preventDefault();
-        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        const k = d / d0;
-        scroll.querySelector('.ed-pages').style.transform = `scale(${k})`;
-        scroll.dataset.pz = String(z0 * k);
-      }
+      if (e.touches.length !== 2 || !d0) return;
+      e.preventDefault();
+      last = { z: z0 * (dist(e.touches) / d0), at: mid(e.touches) };
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (last) setZoom(last.z, last.at); });
     }, { passive: false });
-    scroll.addEventListener('touchend', (e) => {
-      if (d0 && e.touches.length < 2) {
-        d0 = 0;
-        scroll.querySelector('.ed-pages').style.transform = '';
-        if (scroll.dataset.pz) { setZoom(+scroll.dataset.pz); delete scroll.dataset.pz; }
-      }
-    });
+    scroll.addEventListener('touchend', (e) => { if (e.touches.length < 2) { d0 = 0; last = null; } });
   }
 
   function goto(i) {
