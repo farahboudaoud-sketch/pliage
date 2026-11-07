@@ -405,3 +405,11 @@ body.editing #tabs { bottom: 0; }
 
 /* Mac : laisse la place aux trois boutons de fenêtre en haut à gauche */
 .mac #nav { padding-left: 86px; padding-right: 16px; }
+
+/* Fichiers : bouton « Parcourir » (explorateur ouvert dans Documents) */
+.browse { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 12px 12px 14px; background: var(--card); border: 1px solid var(--bd); border-radius: 14px; color: var(--fg); }
+.browse-ic { width: 42px; height: 42px; border-radius: 12px; background: var(--pill); color: var(--acc); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.desktop .browse:hover { background: var(--tint); }
+/* Bouton + dans un écran « Mes essentiels » (pas de barre d'onglets en dessous) */
+.scr .fab { bottom: calc(var(--sab) + 22px); }
+.scr .scr-body { padding-bottom: 96px; }

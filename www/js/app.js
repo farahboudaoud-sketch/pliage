@@ -65,7 +65,7 @@
       <div class="tools-body">${body}</div>
     </div>`;
     host.querySelector('.search input').addEventListener('input', (e) => renderOutils(e.target.value));
-    host.querySelector('[data-open]').addEventListener('click', openFiles);
+    host.querySelector('[data-open]').addEventListener('click', () => openFiles());
     const r = host.querySelector('[data-resume]');
     if (r) r.addEventListener('click', resume);
     bindTiles(host);
@@ -85,17 +85,58 @@
     openFile(last);
   }
 
-  async function openFiles() {
-    const files = (await Native.pick([], true)).filter((f) => !f.error);
+  // ---------------------------------------------------------------- Historique durable
+  // Un fichier choisi arrive d'abord dans le cache de l'appli, que le système peut vider à tout moment.
+  // Pour que l'historique reste utilisable, on en garde une copie dans le dossier de l'appli.
+
+  const KEEP_MAX = 300 * 1024 * 1024;
+  const slash = (p) => String(p || '').replace(/\\/g, '/');
+  const isKept = (p) => /\/hist\//.test(slash(p));
+
+  async function keep(f) {
+    try {
+      const d = await Native.dirs();
+      if (!f.path || !slash(f.path).startsWith(slash(d.cache) + '/') || (f.size && f.size > KEEP_MAX)) return f;
+      const np = d.files + '/hist/' + Store.uid() + '/' + String(f.name || 'fichier').replace(/[\\/:*?"<>|]/g, '_');
+      const r = await Native.copy(f.path, np);
+      f.path = (r && r.path) || np;
+    } catch (e) { /* on garde le chemin d'origine */ }
+    return f;
+  }
+
+  /** Ajoute des fichiers choisis à l'historique, avec une copie durable. Les objets reçus pointent ensuite vers la copie. */
+  async function remember(files, tool) {
+    for (const f of files) {
+      await keep(f);
+      Store.addHistory({ name: f.name, path: f.path, size: f.size, mime: f.mime, tool: tool || 'Ouvert' });
+    }
+    return files;
+  }
+
+  function forget(f) {
+    Store.removeHistory(f.id);
+    if (isKept(f.path) && !Store.history().some((x) => x.path === f.path)) Native.remove(f.path.replace(/[\\/][^\\/]*$/, ''));
+  }
+
+  /** Fichier de l'historique introuvable : on propose de le retirer de la liste. */
+  async function missing(f) {
+    const ok = await UI.confirm('Fichier indisponible', 'Ce fichier a été supprimé ou déplacé, Pliage ne peut plus l’ouvrir. Le retirer de l’historique ?', 'Retirer');
+    if (!ok) return;
+    if (f.id) forget(f);
+    if (current === 'fichiers') renderFichiers();
+  }
+
+  async function openFiles(start) {
+    const files = (await Native.pick([], true, start)).filter((f) => !f.error);
     if (!files.length) return;
-    files.forEach((f) => Store.addHistory({ name: f.name, path: f.path, size: f.size, mime: f.mime, tool: 'Ouvert' }));
+    await remember(files);
     suggest(files, 'open');
   }
 
   async function pickAndEdit(cat) {
     const files = (await Native.pick(['application/pdf'], false)).filter((f) => !f.error);
     if (!files.length) return;
-    Store.addHistory({ name: files[0].name, path: files[0].path, size: files[0].size, mime: files[0].mime, tool: 'Ouvert' });
+    await remember(files);
     tab('modifier');
     Editor.open(files[0], cat ? { cat } : undefined);
   }
@@ -268,7 +309,7 @@
         const np = d.files + '/out/' + Store.uid() + '/' + name.replace(/[\\/:*?"<>|]/g, '_');
         try { await Native.copy(f.path, np); Store.updateHistory(f.id, { name, path: np }); renderFichiers(); UI.toast('Renommé'); } catch (e) { UI.toast(e.message, true); }
       } });
-      items.push({ icon: 'trash', label: 'Retirer de l’historique', danger: true, run: () => { Store.removeHistory(f.id); renderFichiers(); } });
+      items.push({ icon: 'trash', label: 'Retirer de l’historique', danger: true, run: () => { forget(f); renderFichiers(); } });
     }
     UI.menu(f.name, items, [size(f.size), f.tool, f.date ? when(f.date) : ''].filter(Boolean).join(' · '));
   }
@@ -290,10 +331,16 @@
           <button class="ess-ic" data-ess aria-label="Ouvrir ${esc(e.name)}">${icon('star', 24)}</button>
           <button class="ess-t" data-ess><span class="ess-n">${esc(e.name)}</span><span class="fm">${roots.length} sous-dossier${roots.length > 1 ? 's' : ''} · ${docsCount} document${docsCount > 1 ? 's' : ''}</span></button>
           <button class="ib" data-ren aria-label="Renommer le dossier">${icon('pencil', 20)}</button>
+          <button class="ib boxed" data-essadd aria-label="Ajouter des fichiers à ${esc(e.name)}" title="Ajouter des fichiers">${icon('plus', 22)}</button>
         </div>
         <div class="ess-subs">${roots.map((f) => `<button class="sub" data-sub="${f.id}">${icon('folder', 16, 'acc')}${esc(f.name)}<span>${Ess.count(f.id)}</span></button>`).join('')}
           <button class="sub add" data-newsub>+ Sous-dossier</button></div>
       </div>
+      <button class="browse" data-browse>
+        <span class="browse-ic">${icon('folder', 24)}</span>
+        <span class="ft"><span class="fn">Parcourir</span><span class="fm">Ouvre un fichier depuis ${Native.isDesktop || Native.isNative ? 'le dossier Documents' : 'ton appareil'}</span></span>
+        ${icon('chevron', 18, 'acc')}
+      </button>
       <label class="search">${icon('search', 18)}<input placeholder="Chercher un fichier" aria-label="Chercher un fichier" value="${esc(filesQuery)}"></label>
       <div class="chips">${CHIPS.map(([id, l]) => `<button class="chip${filesFilter === id ? ' on' : ''}" data-c="${id}">${l}</button>`).join('')}</div>
       <div class="hist"></div>
@@ -307,9 +354,11 @@
       const x = Store.ess(); x.name = v; Store.saveEss(x); renderFichiers();
     });
     host.querySelector('[data-newsub]').addEventListener('click', async () => { await Ess.newFolder(null); renderFichiers(); });
+    host.querySelector('[data-essadd]').addEventListener('click', () => Ess.pickAndAdd(null));
+    host.querySelector('[data-browse]').addEventListener('click', () => openFiles('documents'));
     host.querySelector('.search input').addEventListener('input', (ev) => { filesQuery = ev.target.value; renderHistory(); });
     host.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => { filesFilter = b.dataset.c; host.querySelectorAll('[data-c]').forEach((x) => x.classList.toggle('on', x === b)); renderHistory(); }));
-    host.querySelector('[data-add]').addEventListener('click', openFiles);
+    host.querySelector('[data-add]').addEventListener('click', () => openFiles());
     renderHistory();
   }
 
@@ -334,7 +383,7 @@
     box.querySelectorAll('.frow').forEach((row) => {
       const f = list.find((x) => x.id === row.dataset.id);
       row.querySelector('[data-open]').addEventListener('click', async () => {
-        if (!(await Native.exists(f.path))) { UI.toast('Ce fichier n’est plus disponible', true); return; }
+        if (!(await Native.exists(f.path))) return missing(f);
         openFile(f);
       });
       row.querySelector('[data-more]').addEventListener('click', () => fileMenu(f));
@@ -387,6 +436,12 @@
         UI.idle();
         UI.toast(err.message || 'Ajout impossible', true);
       }
+    },
+
+    /** Ouvre l'explorateur de fichiers (dans Documents) et ajoute directement les fichiers choisis au dossier. */
+    async pickAndAdd(folder) {
+      const files = (await Native.pick([], true, 'documents')).filter((f) => !f.error);
+      if (files.length) await Ess.addFiles(files, folder || null);
     },
 
     /** Choix d'un dossier. Renvoie id, null (racine) ou false (annulé). */
@@ -449,13 +504,12 @@
         <h3 class="sec-t">Documents</h3>
         ${docs.length ? `<div class="card list">${docs.map((d) => `<div class="frow" data-d="${d.id}"><button class="frow-main" data-open><div class="fb">${badge(d.name)}</div><div class="ft"><span class="fn">${esc(d.name)}</span><span class="fm">${esc([size(d.size), when(d.date)].filter(Boolean).join(' · '))}</span></div></button><button class="ib" data-more aria-label="Actions">${icon('more', 22)}</button></div>`).join('')}</div>`
         : `<div class="empty-st sm">${icon('file', 30)}<b>Aucun document ici</b><span>Ajoute tes documents les plus utiles : ils restent disponibles même si l’original est supprimé.</span></div>`}
-        <p class="hint center">Appui long sur un document ou un dossier pour le renommer, le déplacer ou le retirer.</p>`;
+        <p class="hint center">Appui long sur un document ou un dossier pour le renommer, le déplacer ou le retirer.</p>
+        <button class="fab" data-essfab aria-label="Ajouter des fichiers" title="Ajouter des fichiers">${icon('plus', 26)}</button>`;
+      body.querySelector('[data-essfab]').addEventListener('click', () => Ess.pickAndAdd(v.folder));
       body.querySelector('[data-a="ren"]').addEventListener('click', () => Ess.rename(v.folder));
       body.querySelector('[data-a="sub"]').addEventListener('click', async () => { await Ess.newFolder(v.folder); Ess.refresh(); });
-      body.querySelector('[data-a="add"]').addEventListener('click', async () => {
-        const files = (await Native.pick([], true)).filter((f) => !f.error);
-        if (files.length) Ess.addFiles(files, v.folder || null);
-      });
+      body.querySelector('[data-a="add"]').addEventListener('click', () => Ess.pickAndAdd(v.folder));
       body.querySelectorAll('[data-f]').forEach((b) => {
         b.addEventListener('click', () => { v.folder = b.dataset.f; Ess.refresh(); });
         UI.longPress(b, () => Ess.folderMenu(b.dataset.f));
@@ -570,12 +624,12 @@
     host.querySelector('[data-pick]').addEventListener('click', async () => {
       const files = (await Native.pick(['application/pdf'], false)).filter((f) => !f.error);
       if (!files.length) return;
-      Store.addHistory({ name: files[0].name, path: files[0].path, size: files[0].size, mime: files[0].mime, tool: 'Ouvert' });
+      await remember(files);
       Editor.open(files[0]);
     });
     host.querySelectorAll('[data-id]').forEach((b) => b.addEventListener('click', async () => {
       const f = pdfs.find((x) => x.id === b.dataset.id);
-      if (!(await Native.exists(f.path))) return UI.toast('Ce fichier n’est plus disponible', true);
+      if (!(await Native.exists(f.path))) return missing(f);
       Editor.open(f);
     }));
   }
@@ -672,8 +726,10 @@
     host.querySelector('[data-clear]').addEventListener('click', async () => {
       const ok = await UI.confirm('Vider l’historique ?', 'Les fichiers restent dans Téléchargements/Pliage et dans ' + Store.ess().name + '.', 'Vider', true);
       if (!ok) return;
+      const kept = Store.history().filter((f) => isKept(f.path));
       Store.clearHistory();
       Native.clearCache();
+      kept.forEach((f) => Native.remove(f.path.replace(/[\\/][^\\/]*$/, '')));
       UI.toast('Historique vidé');
     });
   }
@@ -723,13 +779,13 @@
     }
   }
 
-  function incoming(d) {
+  async function incoming(d) {
     const files = (d.files || []).filter((f) => {
       if (f.error) { UI.toast((f.name || 'Fichier') + ' : ' + f.error, true); return false; }
       return true;
     });
     if (!files.length) return;
-    files.forEach((f) => Store.addHistory({ name: f.name, path: f.path, size: f.size, mime: f.mime, tool: d.mode === 'share' ? 'Reçu' : 'Ouvert' }));
+    await remember(files, d.mode === 'share' ? 'Reçu' : 'Ouvert');
     UI.popAll();
     if (current === 'fichiers') renderFichiers();
     // Un PDF ouvert depuis une autre appli arrive directement dans l'éditeur
@@ -796,7 +852,7 @@
     if (noIntro) Intro.skip(); else Intro.play();
   }
 
-  window.App = { tab, outName, finish, openFile, showEditorEmpty, Ess };
+  window.App = { tab, outName, finish, openFile, showEditorEmpty, Ess, remember };
   window.Ess = Ess;
   document.addEventListener('DOMContentLoaded', start);
 })();

@@ -53,7 +53,7 @@
     bar.querySelector('[data-add]').addEventListener('click', async () => {
       const files = (await Native.pick(['application/pdf'], true)).filter((f) => !f.error);
       for (const f of files) {
-        Store.addHistory({ name: f.name, path: f.path, size: f.size, mime: f.mime, tool: 'Ouvert' });
+        await App.remember([f]);
         await open(f);
       }
     });

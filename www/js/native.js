@@ -80,13 +80,13 @@
       return dirs;
     },
 
-    /** Ouvre le gestionnaire de fichiers. accept : liste de types MIME. */
-    async pick(mimes, multiple) {
+    /** Ouvre le gestionnaire de fichiers. accept : liste de types MIME. start : 'documents' pour ouvrir dans Documents. */
+    async pick(mimes, multiple, start) {
       if (P) {
-        const r = await P.pickFiles({ mimes: mimes || [], multiple: !!multiple });
+        const r = await P.pickFiles({ mimes: mimes || [], multiple: !!multiple, start: start || '' });
         return r.files || [];
       }
-      if (D) return D.pick(mimes || [], !!multiple);
+      if (D) return D.pick(mimes || [], !!multiple, start || '');
       const accept = (mimes || []).map((m) => (m === 'application/pdf' ? '.pdf,application/pdf' : m)).join(',');
       return pickerBrowser(accept, multiple);
     },

@@ -17,7 +17,7 @@ function listen(channel, cb) {
 contextBridge.exposeInMainWorld('PliageDesktop', {
   platform: process.platform,
   dirs: () => call('dirs'),
-  pick: (mimes, multiple) => call('pick', mimes, multiple),
+  pick: (mimes, multiple, start) => call('pick', mimes, multiple, start),
   read: async (p) => { const u8 = await call('read', p); return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength); },
   url: (p) => pathToFileURL(p).href,
   write: (p, u8) => call('write', p, u8),

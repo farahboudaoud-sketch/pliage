@@ -147,9 +147,10 @@ const h = (name, fn) => ipcMain.handle(name, async (e, ...args) => {
 
 h('dirs', () => ({ files: FILES(), cache: CACHE() }));
 
-h('pick', async (mimes, multiple) => {
+h('pick', async (mimes, multiple, start) => {
   const exts = [...new Set((mimes || []).flatMap((m) => MIME_EXT[m] || []))];
   const r = await dialog.showOpenDialog(win, {
+    defaultPath: start === 'documents' ? app.getPath('documents') : undefined,
     properties: ['openFile'].concat(multiple ? ['multiSelections'] : []),
     filters: exts.length ? [{ name: 'Fichiers pris en charge', extensions: exts }, { name: 'Tous les fichiers', extensions: ['*'] }] : [{ name: 'Tous les fichiers', extensions: ['*'] }],
   });

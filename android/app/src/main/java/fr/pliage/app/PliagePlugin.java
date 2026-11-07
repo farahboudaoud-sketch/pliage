@@ -21,6 +21,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Parcelable;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Base64;
@@ -162,6 +163,11 @@ public class PliagePlugin extends Plugin {
             }
         }
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, call.getBoolean("multiple", false));
+        // « Parcourir » : le sélecteur s'ouvre directement dans le dossier Documents
+        if ("documents".equals(call.getString("start", "")) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI,
+                DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Documents"));
+        }
         startActivityForResult(call, intent, "pickFilesResult");
     }
 
