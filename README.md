@@ -25,7 +25,7 @@ Les mises à jour s'installent par-dessus l'ancienne version, sans perdre les do
 - **Compresser** : PDF (3 niveaux, Pliage garde l'original s'il ne peut pas faire mieux), images (qualité, taille, format, EXIF et GPS), vidéos (480p à 1080p, qualité, son), création et extraction d'archives ZIP.
 - **Modifier** (éditeur façon Acrobat) :
   - annoter : surligner, souligner, barrer, stylo, formes, notes ;
-  - texte et images : ajouter du texte, remplacer une ligne de texte (elle est recouverte puis réécrite à la même taille), insérer une image, masquer une zone, gomme ;
+  - texte et images : ajouter du texte, remplacer une ligne de texte (elle est recouverte puis réécrite dans la même police, la même taille, la même couleur et sur le même fond), insérer une image, masquer une zone, gomme ;
   - signer : signature et initiales tracées au doigt et enregistrées, date, coche ;
   - formulaires : remplir les champs du PDF, puis les aplatir si tu veux.
 - **Fichiers** : historique de tout ce qui a été ouvert ou créé, filtres, recherche. En haut, le dossier personnel **Mes essentiels** se renomme et accepte des sous-dossiers à volonté. Tu peux y mettre n'importe quel fichier : Pliage en garde sa propre copie.
@@ -56,7 +56,7 @@ Tout reste sur le téléphone. **Réglages › Créer une sauvegarde** exporte u
   - `js/convert.js` : conversions Word, Excel, PowerPoint, EPUB et FB2.
   - `js/editor.js` : l'éditeur PDF. `js/sig.js` : signatures.
   - `js/intro.js` : animation d'ouverture. `js/native.js` : pont vers Android, avec une version de secours pour tester dans un navigateur.
-  - `lib/` : pdf-lib, pdf.js, JSZip, pako, docx, mammoth, SheetJS, PptxGenJS. `fonts/` : Inter et Caveat.
+  - `lib/` : pdf-lib, fontkit, pdf.js, JSZip, pako, docx, mammoth, SheetJS, PptxGenJS, police Carlito. `fonts/` : Inter et Caveat.
 - `android/` : projet Android généré par Capacitor.
   - `PliagePlugin.java` : fichiers, partage, Téléchargements, images, ZIP, HTML → PDF, clés chiffrées, conversion en ligne, sauvegarde.
   - `VideoCompressor.java` (Media3 Transformer), `HtmlToPdf.java` et `android/print/PdfPrinter.java` (PDF via la WebView), `OnlineConverter.java` (ConvertAPI, CloudConvert).

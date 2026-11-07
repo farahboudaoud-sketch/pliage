@@ -433,7 +433,7 @@
       const size = Math.hypot(t[2], t[3]) || 10;
       const st = styles[it.fontName] || {};
       const bold = /bold|black|heavy|semibold/i.test((st.fontFamily || '') + ' ' + (it.fontName || ''));
-      items.push({ str: it.str, x: t[4], y: t[5], w: it.width * (vp.scale || 1), size, bold, font: st.fontFamily || '' });
+      items.push({ str: it.str, x: t[4], y: t[5], w: it.width * (vp.scale || 1), size, bold, font: st.fontFamily || '', fontName: it.fontName });
     }
     // Regroupement en lignes (même hauteur)
     items.sort((a, b) => (Math.abs(a.y - b.y) < Math.min(a.size, b.size) * 0.4 ? a.x - b.x : a.y - b.y));

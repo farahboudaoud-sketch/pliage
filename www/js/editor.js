@@ -564,13 +564,124 @@
   function textLines(o) { return String(o.text || '').split('\n'); }
   function textBox(o) {
     const lines = textLines(o);
-    const w = Math.max(...lines.map((l) => measure(l, o.size, o.bold))) + 4;
+    const w = Math.max(...lines.map((l) => measure(l, o.size, o.bold, o.font, o.italic))) + 4;
     return { x: o.x, y: o.y, w, h: lines.length * o.size * 1.25 };
   }
   const mctx = document.createElement('canvas').getContext('2d');
-  function measure(text, size, bold) {
-    mctx.font = `${bold ? 'bold ' : ''}${size}px Helvetica, Arial, sans-serif`;
+  function measure(text, size, bold, font, italic) {
+    mctx.font = `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${size}px ${famCss(font)}`;
     return mctx.measureText(text).width;
+  }
+
+  // ---------------------------------------------------------------- Polices du texte remplacé
+  // On reprend la famille (sans empattement, à empattement, chasse fixe, Calibri), le gras,
+  // l'italique et la couleur de la ligne d'origine, pour que le nouveau texte se fonde dans la page.
+
+  const FAMILIES = {
+    helv: 'Helvetica, Arial, sans-serif',
+    times: '"Times New Roman", Times, serif',
+    courier: '"Courier New", Courier, monospace',
+    carlito: 'Carlito, Calibri, Helvetica, Arial, sans-serif',
+  };
+  const famCss = (f) => FAMILIES[f] || FAMILIES.helv;
+  const STANDARD = {
+    helv: ['Helvetica', 'HelveticaBold', 'HelveticaOblique', 'HelveticaBoldOblique'],
+    times: ['TimesRoman', 'TimesRomanBold', 'TimesRomanItalic', 'TimesRomanBoldItalic'],
+    courier: ['Courier', 'CourierBold', 'CourierOblique', 'CourierBoldOblique'],
+  };
+  const carlitoKey = (o) => (o.bold ? 'b' : '') + (o.italic ? 'i' : '') || 'r';
+
+  function b64bytes(b) {
+    const bin = atob(b);
+    const a = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    return a;
+  }
+  function loadScript(src) {
+    return new Promise((ok, ko) => {
+      const n = document.createElement('script');
+      n.src = src;
+      n.onload = ok;
+      n.onerror = () => ko(new Error('Chargement impossible : ' + src));
+      document.head.appendChild(n);
+    });
+  }
+  let carlitoReady = null;
+  /** Charge à la demande la police Carlito (équivalent libre de Calibri) et fontkit pour l'intégrer au PDF. */
+  function ensureCarlito() {
+    if (!carlitoReady) {
+      carlitoReady = (async () => {
+        if (!window.PliageFonts || !window.PliageFonts.carlito) await loadScript('lib/carlito.js');
+        if (!window.fontkit) await loadScript('lib/fontkit.umd.min.js');
+        const c = window.PliageFonts.carlito;
+        await Promise.all([['r', '400', 'normal'], ['b', '700', 'normal'], ['i', '400', 'italic'], ['bi', '700', 'italic']].map(async ([k, weight, style]) => {
+          const f = new FontFace('Carlito', b64bytes(c[k]), { weight, style });
+          await f.load();
+          document.fonts.add(f);
+        }));
+      })().catch((e) => { carlitoReady = null; throw e; });
+    }
+    return carlitoReady;
+  }
+
+  /** Famille, gras et italique de la police d'une ligne de texte. */
+  async function lineFont(page, line) {
+    const main = line.items.reduce((a, b) => (b.str.length > a.str.length ? b : a), line.items[0]);
+    let info = {};
+    try {
+      const pg = await S.js.getPage(page + 1);
+      if (main.fontName && !pg.commonObjs.has(main.fontName)) await pg.getOperatorList();
+      if (main.fontName && pg.commonObjs.has(main.fontName)) info = pg.commonObjs.get(main.fontName) || {};
+    } catch (e) { /* police illisible : on devine avec ce qu'on a */ }
+    const name = String(info.name || '').replace(/^[A-Z]{6}\+/, '').toLowerCase();
+    const hint = (name + ' ' + (info.fallbackName || '') + ' ' + (main.font || '')).toLowerCase();
+    let font = 'helv';
+    if (info.isMonospace || /courier|mono|consol|menlo|lucidaconsole|typewriter/.test(hint)) font = 'courier';
+    else if (/calibri|carlito/.test(name)) font = 'carlito';
+    else if (/times|georgia|garamond|cambria|caladea|antiqua|palatino|minion|baskerville|bookman|century|roman|didot|bodoni|caslon|merriweather|charter|tinos|liberationserif|dejavuserif|notoserif|sourceserif/.test(name)) font = 'times';
+    else if (!/sans|arial|helvetica|verdana|tahoma|segoe|aptos|roboto|inter|open|lato|calibri/.test(name) && (info.isSerifFont || /(^|[^-])serif/.test(hint.replace(/sans-serif/g, '')))) font = 'times';
+    const bold = !!(info.bold || info.black) || /bold|black|heavy|semibold|demibold|extrabold|[-,]bd\b/.test(name) || !!main.bold;
+    const italic = !!info.italic || /italic|oblique|[-,]it\b|[-,]i$/.test(name);
+    return { font, bold, italic };
+  }
+
+  /** Couleur du texte et couleur du fond, lues sur l'image de la page. */
+  function lineColors(page, box) {
+    try {
+      const cv = S.root.querySelector(`.ed-page[data-page="${page}"] canvas`);
+      if (!cv || !cv.width) return null;
+      const k = cv.width / S.pages[page].w;
+      const x = Math.max(0, Math.floor(box.x * k)), y = Math.max(0, Math.floor(box.y * k));
+      const w = Math.min(cv.width - x, Math.ceil(box.w * k)), h = Math.min(cv.height - y, Math.ceil(box.h * k));
+      if (w < 3 || h < 3) return null;
+      const d = cv.getContext('2d').getImageData(x, y, w, h).data;
+      // Fond : couleur la plus fréquente sur le bord du cadre
+      const tally = new Map();
+      const vote = (i) => {
+        const key = ((d[i] >> 4) << 8) | ((d[i + 1] >> 4) << 4) | (d[i + 2] >> 4);
+        const t = tally.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+        t.n++; t.r += d[i]; t.g += d[i + 1]; t.b += d[i + 2];
+        tally.set(key, t);
+      };
+      for (let i = 0; i < w; i++) { vote(i * 4); vote(((h - 1) * w + i) * 4); }
+      for (let j = 0; j < h; j++) { vote(j * w * 4); vote((j * w + w - 1) * 4); }
+      let best = null;
+      tally.forEach((t) => { if (!best || t.n > best.n) best = t; });
+      const bg = [best.r / best.n, best.g / best.n, best.b / best.n];
+      // Texte : les pixels les plus éloignés du fond (le cœur des lettres, sans l'anticrénelage)
+      const dist = (i) => Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]);
+      let max = 0;
+      for (let i = 0; i < d.length; i += 4) max = Math.max(max, dist(i));
+      const toHex = (c) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase();
+      if (max < 60) return { bg: toHex(bg) };
+      const acc = [0, 0, 0];
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (dist(i) < max * 0.8) continue;
+        acc[0] += d[i]; acc[1] += d[i + 1]; acc[2] += d[i + 2]; n++;
+      }
+      return { bg: toHex(bg), color: toHex(acc.map((v) => v / n)) };
+    } catch (e) { return null; }
   }
 
   function bbox(o) {
@@ -623,7 +734,7 @@
           if (o.t === 'replace') g.appendChild(svg('rect', { x: o.box.x, y: o.box.y, width: o.box.w, height: o.box.h, fill: o.bg || '#FFFFFF' }));
           const x = o.t === 'replace' ? o.box.x + 1 : o.x;
           const y0 = o.t === 'replace' ? o.box.y + o.box.h * 0.8 : o.y + o.size * 0.95;
-          textLines(o).forEach((l, i) => { const t = svg('text', { x, y: y0 + i * o.size * 1.25, 'font-size': o.size, 'font-family': 'Helvetica, Arial, sans-serif', 'font-weight': o.bold ? 'bold' : 'normal', fill: o.color }); t.textContent = l; g.appendChild(t); });
+          textLines(o).forEach((l, i) => { const t = svg('text', { x, y: y0 + i * o.size * 1.25, 'font-size': o.size, 'font-family': famCss(o.font), 'font-weight': o.bold ? 'bold' : 'normal', 'font-style': o.italic ? 'italic' : 'normal', fill: o.color }); t.textContent = l; g.appendChild(t); });
           break;
         }
         case 'img': g.appendChild(svg('image', { x: o.x, y: o.y, width: o.w, height: o.h, href: o.src, preserveAspectRatio: 'none' })); break;
@@ -907,12 +1018,19 @@
       const info = await textItems(page);
       const line = info.lines.find((l) => y >= l.y - l.size * 0.95 && y <= l.y + l.size * 0.3 && x >= l.x - 4 && x <= l.x2 + 4);
       if (!line) return UI.toast(say('Touche directement une ligne de texte'));
-      const v = await UI.ask('Remplacer le texte', line.text, 'Remplacer', { hint: 'La ligne d’origine est recouverte puis réécrite à la même taille.', allowEmpty: true });
+      const v = await UI.ask('Remplacer le texte', line.text, 'Remplacer', { hint: 'La ligne d’origine est recouverte puis réécrite dans la même police, à la même taille et dans la même couleur.', allowEmpty: true });
       if (v == null) return;
       const pad = line.size * 0.08;
+      const st = await lineFont(page, line);
+      if (st.font === 'carlito') {
+        try { await ensureCarlito(); } catch (e) { st.font = 'helv'; }
+      }
+      const orig = { x: line.x - pad, y: line.y - line.size * 0.92, w: line.x2 - line.x + pad * 2, h: line.size * 1.18 };
+      const col = lineColors(page, orig) || {};
       add({
-        t: 'replace', page, text: v, size: Math.round(line.size * 10) / 10, bold: line.bold, color: '#111111',
-        box: { x: line.x - pad, y: line.y - line.size * 0.92, w: Math.max(line.x2 - line.x, measure(v, line.size, line.bold)) + pad * 2, h: line.size * 1.18 },
+        t: 'replace', page, text: v, size: Math.round(line.size * 10) / 10, bold: st.bold, italic: st.italic, font: st.font,
+        color: col.color || '#111111', bg: col.bg || '#FFFFFF',
+        box: { x: orig.x, y: orig.y, w: Math.max(line.x2 - line.x, measure(v, line.size, st.bold, st.font, st.italic)) + pad * 2, h: orig.h },
       });
     }
   }
@@ -981,7 +1099,21 @@
   async function build_pdf() {
     const doc = await PDFDocument.load(S.bytes, { updateMetadata: false });
     const font = await doc.embedFont(StandardFonts.Helvetica);
-    const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+    const embedded = {};
+    /** Police PDF d'un texte : la même famille, le même gras et le même italique que l'original. */
+    const fontFor = async (o) => {
+      let fam = (STANDARD[o.font] || o.font === 'carlito') ? o.font : 'helv';
+      const key = fam + (o.bold ? 'b' : '') + (o.italic ? 'i' : '');
+      if (embedded[key]) return embedded[key];
+      if (fam === 'carlito') {
+        try {
+          await ensureCarlito();
+          doc.registerFontkit(window.fontkit);
+          return (embedded[key] = await doc.embedFont(b64bytes(window.PliageFonts.carlito[carlitoKey(o)]), { subset: true }));
+        } catch (e) { console.warn('Carlito', e); fam = 'helv'; }
+      }
+      return (embedded[key] = await doc.embedFont(StandardFonts[STANDARD[fam][(o.bold ? 1 : 0) + (o.italic ? 2 : 0)]]));
+    };
     const safe = (f, s) => {
       let out = '';
       for (const ch of String(s)) {
@@ -1036,11 +1168,17 @@
             textLines(o).forEach((l, k) => text(l, b.x + 6, b.y + 15 + k * 11, 9, font, '#3B3000'));
             break;
           }
-          case 'text': textLines(o).forEach((l, k) => text(l, o.x, o.y + o.size * 0.95 + k * o.size * 1.25, o.size, o.bold ? bold : font, o.color)); break;
-          case 'replace':
-            pg.drawRectangle(Object.assign(rectPdf(o.box.x, o.box.y, o.box.w, o.box.h), { color: hex(o.bg || '#FFFFFF') }));
-            textLines(o).forEach((l, k) => text(l, o.box.x + 1, o.box.y + o.box.h * 0.8 + k * o.size * 1.25, o.size, o.bold ? bold : font, o.color));
+          case 'text': {
+            const f = await fontFor(o);
+            textLines(o).forEach((l, k) => text(l, o.x, o.y + o.size * 0.95 + k * o.size * 1.25, o.size, f, o.color));
             break;
+          }
+          case 'replace': {
+            const f = await fontFor(o);
+            pg.drawRectangle(Object.assign(rectPdf(o.box.x, o.box.y, o.box.w, o.box.h), { color: hex(o.bg || '#FFFFFF') }));
+            textLines(o).forEach((l, k) => text(l, o.box.x + 1, o.box.y + o.box.h * 0.8 + k * o.size * 1.25, o.size, f, o.color));
+            break;
+          }
           case 'mask': pg.drawRectangle(Object.assign(rectPdf(o.x, o.y, o.w, o.h), { color: hex(o.color) })); break;
           case 'check': {
             const s = o.s, w = Math.max(1.4, s * 0.12);

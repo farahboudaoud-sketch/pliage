@@ -12,7 +12,10 @@ const libs = [
   ['mammoth/mammoth.browser.min.js', 'mammoth.browser.min.js'],
   ['xlsx/dist/xlsx.full.min.js', 'xlsx.full.min.js'],
   ['pptxgenjs/dist/pptxgen.bundle.js', 'pptxgen.bundle.js'],
+  ['@pdf-lib/fontkit/dist/fontkit.umd.min.js', 'fontkit.umd.min.js'],
 ];
+// www/lib/carlito.js (police Carlito, compatible Calibri, réduite aux caractères latins avec pyftsubset)
+// est fourni tel quel dans le dépôt : il n'est pas régénéré ici.
 for (const [src, dst] of libs) copyFileSync('node_modules/' + src, 'www/lib/' + dst);
 const fonts = [['Inter', 'inter', [400, 500, 600]], ['Caveat', 'caveat', [600]]];
 let css = '';
