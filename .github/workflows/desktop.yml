@@ -3,7 +3,7 @@ name: Compiler la version Windows
 on:
   push:
     branches: [main]
-    paths: ['www/**', 'desktop/**', 'assets/**', '.github/workflows/desktop.yml']
+    paths: ['www/**', 'desktop/**', 'assets/**', 'VERSION', '.github/workflows/desktop.yml']
   workflow_dispatch:
 
 permissions:

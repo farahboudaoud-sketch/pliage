@@ -3,7 +3,7 @@ name: Compiler la version Mac
 on:
   push:
     branches: [main]
-    paths: ['www/**', 'desktop/**', 'assets/**', '.github/workflows/mac.yml']
+    paths: ['www/**', 'desktop/**', 'assets/**', 'VERSION', '.github/workflows/mac.yml']
   workflow_dispatch:
 
 permissions:
