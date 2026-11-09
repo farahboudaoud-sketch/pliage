@@ -10,3 +10,16 @@ await sharp(svg(2732, '#FAF9F8', '')).png().toFile('assets/splash.png');
 await sharp(svg(2732, '#151112', '')).png().toFile('assets/splash-dark.png');
 await sharp(svg(512, '#FFFFFF', centred(512, 350, '#7B1E2B', '#5A1520'))).png().toFile('/tmp/icon-preview.png');
 console.log('icons ok');
+
+// Icône Mac : macOS n'arrondit pas les icônes, on dessine donc le carré arrondi
+// (grille Apple : carré de 824 px aux coins de 185 px, centré dans 1024 px, avec une ombre légère).
+{
+  const s = 1024, sq = 824, off = (s - sq) / 2;
+  const mac = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+    <defs><filter id="o" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.28"/></filter></defs>
+    <rect x="${off}" y="${off}" width="${sq}" height="${sq}" rx="185" ry="185" fill="#FFFFFF" filter="url(#o)"/>
+    ${centred(s, 560, '#7B1E2B', '#5A1520')}
+  </svg>`;
+  await sharp(Buffer.from(mac)).png().toFile('assets/icon-mac.png');
+  console.log('icône Mac ok');
+}

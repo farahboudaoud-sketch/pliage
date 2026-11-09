@@ -43,7 +43,7 @@ a { color: var(--acc); }
 .brand { display: flex; align-items: center; gap: 10px; font-size: 23px; font-weight: 600; letter-spacing: -.3px; }
 .bird { width: 32px; height: 26px; }
 .bird .b1 { fill: var(--b1); } .bird .b2 { fill: var(--b2); }
-.sec-t { margin: 8px 0 -6px; line-height: 1.3; font-size: 13px; font-weight: 500; color: var(--muted); }
+.sec-t { margin: 10px 0 0; line-height: 1.35; font-size: 13px; font-weight: 500; color: var(--muted); }
 .sec-t small { font-weight: 400; }
 .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .tile { min-height: 86px; background: var(--card); border: 1px solid var(--bd); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 10px 4px; text-align: center; font-size: 12.5px; line-height: 1.2; }

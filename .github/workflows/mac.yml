@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Installer Node 22
         uses: actions/setup-node@v5
@@ -25,7 +27,12 @@ jobs:
           node-version: '22'
 
       - name: Numéro de version
-        run: echo "APP_VERSION=1.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+        shell: bash
+        run: |
+          BASE=$(cat VERSION)
+          DEPUIS=$(git log -1 --format=%H -- VERSION)
+          CORRECTIF=$(git rev-list --count "$DEPUIS"..HEAD)
+          echo "APP_VERSION=$BASE.$CORRECTIF" >> "$GITHUB_ENV"
 
       - name: Installer les dépendances (${{ matrix.arch }})
         working-directory: desktop
@@ -52,8 +59,17 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - name: Numéro de version
-        run: echo "APP_VERSION=1.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+        shell: bash
+        run: |
+          BASE=$(cat VERSION)
+          DEPUIS=$(git log -1 --format=%H -- VERSION)
+          CORRECTIF=$(git rev-list --count "$DEPUIS"..HEAD)
+          echo "APP_VERSION=$BASE.$CORRECTIF" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@v4
         with:
           path: dmg
