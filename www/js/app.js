@@ -801,6 +801,7 @@
   let lastBack = 0;
   function back() {
     if (UI.isBusy()) return;
+    if (window.Present && Present.active()) { Present.stop(); return; }
     if (UI.closeTopSheet()) return;
     if (UI.depth()) {
       const top = UI.topScreen();

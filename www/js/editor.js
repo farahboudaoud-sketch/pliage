@@ -174,7 +174,9 @@
     const root = UI.el(`<div class="ed">
       <header class="bar ed-top">
         <button class="ib" data-close aria-label="Fermer le document">${UI.icon('back')}</button>
+        <button class="ib ed-side-btn" data-side aria-label="Afficher ou masquer les outils" title="Afficher ou masquer les outils (Ctrl+B)">${UI.icon('sidebar', 20)}</button>
         <div class="bar-t"><span class="t1">${esc(S.file.name)}</span><span class="t2 ed-pg">Page 1 sur ${S.pages.length}</span></div>
+        <button class="ib" data-present aria-label="Plein écran" title="Plein écran (F5)">${UI.icon('present', 21)}</button>
         <button class="ib" data-share aria-label="${Native.isDesktop ? 'Montrer dans le dossier' : 'Partager'}">${UI.icon(Native.isDesktop ? 'folder' : 'share', 20)}</button>
         <button class="btn sm" data-edit>${UI.icon('pencil', 18)} Modifier</button>
         <button class="ib" data-undo aria-label="Annuler">${UI.icon('undo', 20)}</button>
@@ -183,7 +185,7 @@
       </header>
       <div class="ed-main">
         <aside class="ed-tools" aria-label="Outils de modification">
-          <div class="ed-side-t">Outils de modification</div>
+          <div class="ed-side-t"><span>Outils de modification</span><button class="ib sm" data-collapse aria-label="Réduire le volet" title="Réduire le volet (Ctrl+B)">${UI.icon('collapse', 18)}</button></div>
           <div class="ed-cats" role="tablist"></div>
           <div class="ed-row"></div>
           <div class="ed-opts"></div>
@@ -206,6 +208,10 @@
     host.appendChild(root);
     S.root = root;
     root.classList.toggle('viewing', !!S.view);
+    root.classList.toggle('side-off', Store.settings.sideOpen === false);
+    root.querySelector('[data-side]').addEventListener('click', toggleSide);
+    root.querySelector('[data-collapse]').addEventListener('click', toggleSide);
+    root.querySelector('[data-present]').addEventListener('click', present);
     root.querySelector('[data-close]').addEventListener('click', tryClose);
     root.querySelector('[data-share]').addEventListener('click', () => Native.share([S.file.path]).catch((e) => UI.toast(e.message, true)));
     root.querySelector('[data-edit]').addEventListener('click', () => {
@@ -1244,9 +1250,35 @@
     else if ((e.ctrlKey || e.metaKey) && k === '-') { e.preventDefault(); setZoom(S.zoom / 1.25); }
     else if ((e.ctrlKey || e.metaKey) && k === '0') { e.preventDefault(); S.zoom = 1.0001; setZoom(1); }
     else if ((e.ctrlKey || e.metaKey) && k === 'w') { e.preventDefault(); tryClose(); }
+    else if ((e.ctrlKey || e.metaKey) && k === 'b') { e.preventDefault(); toggleSide(); }
+    else if (k === 'f5' && !Present.active()) { e.preventDefault(); present(); }
     else if (e.ctrlKey && k === 'tab' && sessions.length > 1) { e.preventDefault(); const i = sessions.indexOf(S); activate(sessions[(i + (e.shiftKey ? -1 : 1) + sessions.length) % sessions.length]); }
     else if ((k === 'delete' || k === 'backspace') && S.sel) { e.preventDefault(); selAction('del'); }
   });
+
+  /** Réduit ou rouvre le volet d'outils (PC), pour tous les documents ouverts. */
+  function toggleSide() {
+    const open = Store.settings.sideOpen === false;
+    Store.set('sideOpen', open);
+    sessions.forEach((x) => x.root && x.root.classList.toggle('side-off', !open));
+    requestAnimationFrame(() => relayout());
+  }
+
+  /** Lance le plein écran sur la page affichée, avec les ajouts déjà faits. */
+  function present() {
+    if (!S) return;
+    const s = S;
+    select(null);
+    Present.start(s.js, s.current || 0, (i) => {
+      const ov = s.root.querySelector(`.ed-page[data-page="${i}"] .ed-ov`);
+      if (!ov || !ov.childElementCount) return '';
+      const c = ov.cloneNode(true);
+      c.querySelectorAll('.ed-selbox, .ed-preview, .hit').forEach((n) => n.remove());
+      c.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%');
+      return c.outerHTML;
+    });
+    Present.onStop((page) => { if (S === s) goto(page); });
+  }
 
   function isOpen() { return !!S; }
   function handleBack() {

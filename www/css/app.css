@@ -413,3 +413,26 @@ body.editing #tabs { bottom: 0; }
 /* Bouton + dans un écran « Mes essentiels » (pas de barre d'onglets en dessous) */
 .scr .fab { bottom: calc(var(--sab) + 22px); }
 .scr .scr-body { padding-bottom: 96px; }
+
+/* Volet d'outils réductible (PC) */
+.ed-side-btn { display: none; }
+.desktop .ed-side-btn { display: flex; }
+.desktop .ed-side-t { display: flex; align-items: center; justify-content: space-between; padding-right: 8px; }
+.desktop .ed.side-off .ed-main .ed-tools { display: none; }
+.desktop .ed.viewing .ed-side-btn { display: none; }
+
+/* Mode présentation */
+.present { position: fixed; inset: 0; z-index: 300; background: #000; display: flex; align-items: center; justify-content: center; cursor: none; user-select: none; -webkit-user-select: none; touch-action: none; }
+.present.awake { cursor: default; }
+.pr-stage { position: relative; display: flex; }
+.pr-stage canvas { display: block; box-shadow: 0 0 40px rgba(0, 0, 0, .5); }
+.pr-ov { position: absolute; left: 0; top: 0; pointer-events: none; }
+.pr-bar { position: absolute; left: 50%; bottom: calc(18px + var(--sab)); transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 16px; background: rgba(30, 26, 27, .82); color: #fff; opacity: 0; transition: opacity .25s; }
+.present.awake .pr-bar { opacity: 1; }
+.pr-b { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; }
+.pr-b:hover { background: rgba(255, 255, 255, .12); }
+.pr-n { min-width: 64px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; }
+.pr-hint { position: absolute; top: calc(18px + var(--sat)); left: 50%; transform: translateX(-50%); padding: 8px 14px; border-radius: 10px; background: rgba(30, 26, 27, .82); color: #fff; font-size: 13px; transition: opacity .4s; white-space: nowrap; }
+.present.hint-off .pr-hint { opacity: 0; }
+.present.end .pr-stage { animation: prend .35s; }
+@keyframes prend { 30% { transform: translateX(-12px); } 70% { transform: translateX(8px); } }

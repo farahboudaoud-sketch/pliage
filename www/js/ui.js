@@ -66,6 +66,9 @@
     copy: 'M8 8h12v12H8zM4 16V4h12',
     select: 'M5 3l14 8-6 2-2 6z',
     widget: 'M4 4h16v10H4zM7 17h10M9 20h6',
+    sidebar: 'M4 4h16v16H4zM9 4v16',
+    present: 'M3 4h18v12H3zM12 16v4M8 20h8M10 7.5l4 2.5-4 2.5z',
+    collapse: 'M15 6l-6 6 6 6M20 4v16',
   };
 
   function icon(name, size, extra) {

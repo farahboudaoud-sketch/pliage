@@ -29,6 +29,9 @@ import android.webkit.MimeTypeMap;
 
 import androidx.activity.result.ActivityResult;
 import androidx.core.content.FileProvider;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.exifinterface.media.ExifInterface;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKeys;
@@ -83,6 +86,23 @@ public class PliagePlugin extends Plugin {
             launchedWithFile = Intent.ACTION_VIEW.equals(a) || Intent.ACTION_SEND.equals(a) || Intent.ACTION_SEND_MULTIPLE.equals(a);
             handleIncoming(intent);
         }
+    }
+
+    /** Plein écran (mode présentation) : masque ou réaffiche les barres du système. */
+    @PluginMethod
+    public void setImmersive(PluginCall call) {
+        final boolean on = call.getBoolean("on", false);
+        getActivity().runOnUiThread(() -> {
+            android.view.Window w = getActivity().getWindow();
+            WindowInsetsControllerCompat c = WindowCompat.getInsetsController(w, w.getDecorView());
+            if (on) {
+                c.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                c.hide(WindowInsetsCompat.Type.systemBars());
+            } else {
+                c.show(WindowInsetsCompat.Type.systemBars());
+            }
+            call.resolve();
+        });
     }
 
     /** L'appli a-t-elle été lancée pour ouvrir un fichier ? (pas d'animation dans ce cas) */
