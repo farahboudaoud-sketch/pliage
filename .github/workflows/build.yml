@@ -48,11 +48,20 @@ jobs:
       - name: Copier l'appli dans le projet Android
         run: npx cap sync android
 
+      - name: Préparer Gradle (avec cache des dépendances)
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Compiler l'APK
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          # Maven Central limite parfois les téléchargements (erreur 429) : on réessaie
+          for essai in 1 2 3; do
+            ./gradlew assembleRelease --stacktrace && exit 0
+            echo "Échec de la compilation (essai $essai), nouvel essai dans 90 s"
+            sleep 90
+          done
+          exit 1
 
       - name: Renommer l'APK
         run: |
